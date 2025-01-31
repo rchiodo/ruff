@@ -26,6 +26,11 @@ pub(super) fn request<'a>(req: server::Request) -> Task<'a> {
                 BackgroundSchedule::LatencySensitive,
             )
         }
+        request::DefinitionRequestHandler::METHOD => background_request_task::<
+            request::DefinitionRequestHandler,
+        >(
+            req, BackgroundSchedule::LatencySensitive
+        ),
         method => {
             tracing::warn!("Received request {method} which does not have a handler");
             return Task::nothing();
@@ -64,7 +69,7 @@ pub(super) fn notification<'a>(notif: server::Notification) -> Task<'a> {
     })
 }
 
-fn _local_request_task<'a, R: traits::SyncRequestHandler>(
+fn local_request_task<'a, R: traits::SyncRequestHandler>(
     req: server::Request,
 ) -> super::Result<Task<'a>> {
     let (id, params) = cast_request::<R>(req)?;

@@ -220,6 +220,7 @@ impl Server {
                     ..Default::default()
                 },
             )),
+            definition_provider: Some(lsp_types::OneOf::Left(true)),
             ..Default::default()
         }
     }

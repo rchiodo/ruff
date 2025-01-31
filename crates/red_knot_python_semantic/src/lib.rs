@@ -29,7 +29,7 @@ mod suppression;
 pub(crate) mod symbol;
 pub mod types;
 mod unpack;
-mod util;
+pub mod util;
 mod visibility_constraints;
 
 type FxOrderSet<V> = ordermap::set::OrderSet<V, BuildHasherDefault<FxHasher>>;

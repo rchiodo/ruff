@@ -17,6 +17,7 @@ ruff_notebook = { workspace = true }
 ruff_python_ast = { workspace = true }
 ruff_source_file = { workspace = true }
 ruff_text_size = { workspace = true }
+red_knot_python_semantic = { workspace = true }
 
 anyhow = { workspace = true }
 crossbeam = { workspace = true }
