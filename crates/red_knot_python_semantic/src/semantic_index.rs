@@ -53,7 +53,7 @@ pub fn semantic_index(db: &dyn Db, file: File) -> SemanticIndex<'_> {
 /// Salsa can avoid invalidating dependent queries if this scope's symbol table
 /// is unchanged.
 #[salsa::tracked]
-pub(crate) fn symbol_table<'db>(db: &'db dyn Db, scope: ScopeId<'db>) -> Arc<SymbolTable> {
+pub fn symbol_table<'db>(db: &'db dyn Db, scope: ScopeId<'db>) -> Arc<SymbolTable> {
     let file = scope.file(db);
     let _span =
         tracing::trace_span!("symbol_table", scope=?scope.as_id(), file=%file.path(db)).entered();
@@ -212,7 +212,7 @@ impl<'db> SemanticIndex<'db> {
 
     /// Returns an iterator over the direct child scopes of `scope`.
     #[allow(unused)]
-    pub(crate) fn child_scopes(&self, scope: FileScopeId) -> ChildrenIter {
+    pub fn child_scopes(&self, scope: FileScopeId) -> ChildrenIter {
         ChildrenIter::new(self, scope)
     }
 

@@ -8,10 +8,10 @@ use ruff_python_ast::AnyNodeRef;
 /// AST node where both the `target` and the `iter` field are `ExprName` nodes
 /// with the same (empty) range `3..3`.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
-pub(super) struct NodeKey(usize);
+pub struct NodeKey(usize);
 
 impl NodeKey {
-    pub(super) fn from_node<'a, N>(node: N) -> Self
+    pub fn from_node<'a, N>(node: N) -> Self
     where
         N: Into<AnyNodeRef<'a>>,
     {

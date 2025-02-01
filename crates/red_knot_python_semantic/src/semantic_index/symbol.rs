@@ -344,7 +344,7 @@ impl NodeWithScopeRef<'_> {
     /// # Safety
     /// The node wrapped by `self` must be a child of `module`.
     #[allow(unsafe_code)]
-    pub(super) unsafe fn to_kind(self, module: ParsedModule) -> NodeWithScopeKind {
+    pub unsafe fn to_kind(self, module: ParsedModule) -> NodeWithScopeKind {
         match self {
             NodeWithScopeRef::Module => NodeWithScopeKind::Module,
             NodeWithScopeRef::Class(class) => {

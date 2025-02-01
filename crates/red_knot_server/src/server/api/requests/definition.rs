@@ -3,14 +3,15 @@ use std::borrow::Cow;
 use lsp_types::request::GotoDefinition;
 use lsp_types::{GotoDefinitionParams, GotoDefinitionResponse, Url};
 use red_knot_project::{Db, ProjectDatabase};
-use red_knot_python_semantic::semantic_index::semantic_index;
+use red_knot_python_semantic::semantic_index::{semantic_index, symbol_table};
+use red_knot_python_semantic::semantic_index::symbol::FileScopeId;
 use ruff_db::parsed::{self, parsed_module};
 use ruff_source_file::OneIndexed;
 
 use crate::server::api::traits::{BackgroundDocumentRequestHandler, RequestHandler};
 use crate::server::{client::Notifier, Result};
 use crate::DocumentSnapshot;
-use red_knot_python_semantic::util::nodes::find_node_key;
+use red_knot_python_semantic::util::nodes::{find_node_and_owning_scope};
 use ruff_db::source::{line_index, source_text};
 
 pub(crate) struct DefinitionRequestHandler;
@@ -44,14 +45,22 @@ impl BackgroundDocumentRequestHandler for DefinitionRequestHandler {
         let parsed = parsed_module(&db, file);
 
         let mut locations = vec![];
-        let sem_index = semantic_index(&db, file);
+        let index = semantic_index(&db, file);
         let offset = line_index.offset(
             OneIndexed::from_zero_indexed(position.line as usize),
             OneIndexed::from_zero_indexed(position.character as usize),
             source.as_str(),
         );
-        let node_key = find_node_key(parsed, offset);
-        sem_index.definition(node_key);
+        let node = find_node_and_owning_scope(parsed, offset);
+
+        // Find the symbol for the node.
+        let node = node.ok_or_else(|| {
+            tracing::info!("No node found for offset {}", offset);
+            "No node found for offset"
+        })?;
+
+        let scope_id= index.child_scopes(scope)
+        let symbol_table = symbol_table(db, node.scope);
 
         // for (file, range) in db.find_definitions(file, line_index, source, position) {
         //     let url = Url::from_file_path(file).unwrap();
@@ -65,3 +74,25 @@ impl BackgroundDocumentRequestHandler for DefinitionRequestHandler {
         Ok(Some(GotoDefinitionResponse::Array(locations)))
     }
 }
+
+// fn get_symbol<'db>(
+//     db: &'db Db,
+//     scopes: &[&str],
+//     symbol_name: &str,
+// ) -> Symbol<'db> {
+//     let file = system_path_to_file(db, file_name).expect("file to exist");
+//     let index = semantic_index(db, file);
+//     let mut file_scope_id = FileScopeId::global();
+//     let mut scope = file_scope_id.to_scope_id(db, file);
+//     for expected_scope_name in scopes {
+//         file_scope_id = index
+//             .child_scopes(file_scope_id)
+//             .next()
+//             .unwrap_or_else(|| panic!("scope of {expected_scope_name}"))
+//             .0;
+//         scope = file_scope_id.to_scope_id(db, file);
+//         assert_eq!(scope.name(db), *expected_scope_name);
+//     }
+
+//     symbol(db, scope, symbol_name)
+// }
