@@ -16,11 +16,12 @@ mod symbols;
 mod traits;
 
 use self::traits::{NotificationHandler, RequestHandler};
-use super::{Result, schedule::BackgroundSchedule};
+use super::{Result, schedule::BackgroundSchedule, tsp};
 use crate::session::client::Client;
 pub(crate) use diagnostics::publish_settings_diagnostics;
 pub use requests::{PartialWorkspaceProgress, PartialWorkspaceProgressParams};
 use ruff_db::panic::PanicError;
+use tsp::GetTypeResponse;
 
 /// Processes a request from the client to the server.
 ///
@@ -103,6 +104,54 @@ pub(super) fn request(req: server::Request) -> Task {
             req, BackgroundSchedule::Worker
         ),
         lsp_types::request::Shutdown::METHOD => sync_request_task::<requests::ShutdownHandler>(req),
+
+        // TSP (Type Server Protocol) handlers
+        "typeServer/getType" => {
+            let request: server::Request = req;
+            let id = request.id.clone();
+            Ok(Task::sync(move |session, client| {
+                let result = request
+                    .extract::<tsp::GetTypeParams>("typeServer/getType")
+                    .map_err(|err| match err {
+                        json_err @ server::ExtractError::JsonError { .. } => {
+                            anyhow::anyhow!("JSON parsing failure:\n{json_err}")
+                        }
+                        server::ExtractError::MethodMismatch(_) => {
+                            unreachable!("Method mismatch should not be possible")
+                        }
+                    });
+
+                match result {
+                    Ok((_, params)) => {
+                        let url = tsp::GetTypeRequestHandler::document_url(&params);
+                        let snapshot = session.take_document_snapshot(url.into_owned());
+                        if let Ok(document_query) = snapshot.document() {
+                            let db = session.project_db(document_query.file_path());
+                            tsp::GetTypeRequestHandler::handle_request(
+                                &id, db, snapshot, client, params,
+                            );
+                        } else {
+                            client.respond::<GetTypeResponse>(
+                                &id,
+                                Err(crate::server::api::Error::new(
+                                    anyhow::anyhow!("Failed to resolve document"),
+                                    lsp_server::ErrorCode::InternalError,
+                                )),
+                            );
+                        }
+                    }
+                    Err(err) => {
+                        client.respond::<GetTypeResponse>(
+                            &id,
+                            Err(crate::server::api::Error::new(
+                                err,
+                                lsp_server::ErrorCode::ParseError,
+                            )),
+                        );
+                    }
+                }
+            }))
+        }
 
         method => {
             tracing::warn!("Received request {method} which does not have a handler");

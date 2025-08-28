@@ -16,6 +16,7 @@ mod api;
 mod lazy_work_done_progress;
 mod main_loop;
 mod schedule;
+mod tsp;
 
 use crate::session::client::Client;
 pub(crate) use api::Error;
