@@ -262,6 +262,40 @@ mod tsp_api {
     use lsp_server as server;
     use tsp::{GetTypeResponse, TSPRequests};
 
+    /// Converts a `serde_json::Value` ID to `lsp_server::RequestId`.
+    fn convert_request_id(id: serde_json::Value) -> Result<lsp_server::RequestId, anyhow::Error> {
+        match id {
+            serde_json::Value::String(s) => Ok(lsp_server::RequestId::from(s)),
+            serde_json::Value::Number(n) => {
+                if let Some(i) = n.as_i64() {
+                    #[allow(clippy::cast_possible_truncation)]
+                    Ok(lsp_server::RequestId::from(i as i32))
+                } else {
+                    Err(anyhow!("Invalid request ID format: number out of range"))
+                }
+            }
+            _ => Err(anyhow!(
+                "Invalid request ID format: must be string or number"
+            )),
+        }
+    }
+
+    /// Macro to handle request ID conversion with error handling.
+    macro_rules! handle_request_id {
+        ($id:expr, $orig_request_id:expr) => {
+            match convert_request_id($id) {
+                Ok(id) => id,
+                Err(err) => {
+                    let result: crate::server::Result<()> = Err(crate::server::api::Error::new(
+                        err,
+                        server::ErrorCode::InvalidRequest,
+                    ));
+                    return Task::immediate($orig_request_id, result);
+                }
+            }
+        };
+    }
+
     /// Processes a TSP request from the client to the server.
     pub(super) fn request(req: server::Request) -> Task {
         let request_id = req.id.clone();
@@ -284,30 +318,7 @@ mod tsp_api {
         match tsp_request {
             TSPRequests::GetTypeRequest { id, params } => {
                 // Convert serde_json::Value to lsp_server::RequestId
-                let request_id = match id {
-                    serde_json::Value::String(s) => lsp_server::RequestId::from(s),
-                    serde_json::Value::Number(n) => {
-                        if let Some(i) = n.as_i64() {
-                            #[allow(clippy::cast_possible_truncation)]
-                            lsp_server::RequestId::from(i as i32)
-                        } else {
-                            let result: crate::server::Result<()> =
-                                Err(crate::server::api::Error::new(
-                                    anyhow!("Invalid request ID format"),
-                                    server::ErrorCode::InvalidRequest,
-                                ));
-                            return Task::immediate(request_id, result);
-                        }
-                    }
-                    _ => {
-                        let result: crate::server::Result<()> =
-                            Err(crate::server::api::Error::new(
-                                anyhow!("Invalid request ID format"),
-                                server::ErrorCode::InvalidRequest,
-                            ));
-                        return Task::immediate(request_id, result);
-                    }
-                };
+                let request_id = handle_request_id!(id, request_id);
 
                 Task::sync(move |session, client| {
                     // Parameters are already extracted and validated by the enum deserialization
@@ -333,6 +344,15 @@ mod tsp_api {
                         );
                     }
                 })
+            }
+
+            TSPRequests::GetSupportedProtocolVersionRequest { id } => {
+                // Convert serde_json::Value to lsp_server::RequestId
+                let request_id = handle_request_id!(id, request_id);
+
+                // Return the protocol version immediately
+                let result = Ok(tsp::TYPE_SERVER_VERSION.to_string());
+                Task::immediate(request_id, result)
             }
 
             _ => {
