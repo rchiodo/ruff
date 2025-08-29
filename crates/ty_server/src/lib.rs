@@ -99,9 +99,11 @@ pub fn run_tsp_server() -> anyhow::Result<()> {
     // This is to complement the `LSPSystem` if the document is not available in the index.
     let fallback_system = Arc::new(OsSystem::new(cwd));
 
-    let server_result = Server::new(worker_threads, connection, fallback_system, false)
-        .context("Failed to start TSP server")?
-        .run_tsp();
+    let server_result = {
+        let server = Server::new(worker_threads, connection, fallback_system, false)
+            .context("Failed to start TSP server")?;
+        TspServer::new(server).run()
+    };
 
     let io_result = io_threads.join();
 

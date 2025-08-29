@@ -182,7 +182,7 @@ impl TestServer {
             match Server::new(worker_threads, server_connection, test_system, true) {
                 Ok(server) => {
                     let result = if use_tsp {
-                        server.run_tsp()
+                        TspServer::new(server).run()
                     } else {
                         server.run()
                     };
