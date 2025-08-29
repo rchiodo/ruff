@@ -17,6 +17,7 @@ mod lazy_work_done_progress;
 mod main_loop;
 mod schedule;
 mod tsp;
+mod tsp_server;
 
 use crate::session::client::Client;
 pub(crate) use api::Error;
@@ -26,13 +27,14 @@ pub(crate) use main_loop::{
 };
 pub(crate) type Result<T> = std::result::Result<T, api::Error>;
 pub use api::{PartialWorkspaceProgress, PartialWorkspaceProgressParams};
+pub use tsp_server::TspServer;
 
 pub struct Server {
-    connection: Connection,
-    worker_threads: NonZeroUsize,
-    main_loop_receiver: MainLoopReceiver,
-    main_loop_sender: MainLoopSender,
-    session: Session,
+    pub(crate) connection: Connection,
+    pub(crate) worker_threads: NonZeroUsize,
+    pub(crate) main_loop_receiver: MainLoopReceiver,
+    pub(crate) main_loop_sender: MainLoopSender,
+    pub(crate) session: Session,
 }
 
 impl Server {
@@ -215,14 +217,14 @@ impl Server {
 
 type PanicHook = Box<dyn Fn(&PanicHookInfo<'_>) + 'static + Sync + Send>;
 
-struct ServerPanicHookHandler {
+pub(crate) struct ServerPanicHookHandler {
     hook: Option<PanicHook>,
     // Hold on to the strong reference for as long as the panic hook is set.
     _client: Arc<Client>,
 }
 
 impl ServerPanicHookHandler {
-    fn new(client: Client) -> Self {
+    pub(crate) fn new(client: Client) -> Self {
         let hook = std::panic::take_hook();
         let client = Arc::new(client);
 

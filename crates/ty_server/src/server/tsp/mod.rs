@@ -1,7 +1,6 @@
-//! Type Server Protocol (TSP) implementation for ty server.
+// Type Server Protocol (TSP) implementation
 
-pub mod protocol;
-pub mod requests;
+pub(crate) mod protocol;
+pub(crate) mod requests;
 
-pub use protocol::*;
-pub use requests::get_type::GetTypeRequestHandler;
+pub(crate) use protocol::*;

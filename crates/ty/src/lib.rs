@@ -30,7 +30,7 @@ use ty_project::metadata::options::ProjectOptionsOverrides;
 use ty_project::watch::ProjectWatcher;
 use ty_project::{CollectReporter, Db, watch};
 use ty_project::{ProjectDatabase, ProjectMetadata};
-use ty_server::run_server;
+use ty_server::{run_server, run_tsp_server};
 
 pub fn run() -> anyhow::Result<ExitStatus> {
     setup_rayon();
@@ -43,6 +43,7 @@ pub fn run() -> anyhow::Result<ExitStatus> {
 
     match args.command {
         Command::Server => run_server().map(|()| ExitStatus::Success),
+        Command::TspServer => run_tsp_server().map(|()| ExitStatus::Success),
         Command::Check(check_args) => run_check(check_args),
         Command::Version => version().map(|()| ExitStatus::Success),
         Command::GenerateShellCompletion { shell } => {

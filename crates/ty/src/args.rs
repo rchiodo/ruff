@@ -25,6 +25,9 @@ pub(crate) enum Command {
     /// Start the language server
     Server,
 
+    /// Start the type server protocol (TSP) server
+    TspServer,
+
     /// Display ty's version
     Version,
 

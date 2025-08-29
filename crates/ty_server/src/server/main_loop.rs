@@ -167,7 +167,7 @@ impl Server {
     /// Waits for the next message from the client or action.
     ///
     /// Returns `Ok(None)` if the client connection is closed.
-    fn next_event(&mut self) -> Result<Option<Event>, crossbeam::channel::RecvError> {
+    pub(crate) fn next_event(&mut self) -> Result<Option<Event>, crossbeam::channel::RecvError> {
         // We can't queue those into the main loop because that could result in reordering if
         // the `select` below picks a client message first.
         if let Some(deferred) = self.session.take_deferred_messages() {
@@ -195,7 +195,7 @@ impl Server {
         )
     }
 
-    fn initialize(&mut self, client: &Client) {
+    pub(crate) fn initialize(&mut self, client: &Client) {
         self.request_workspace_configurations(client);
     }
 

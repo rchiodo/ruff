@@ -15,7 +15,8 @@ use crate::session::DocumentSnapshot;
 use crate::session::client::Client;
 
 // Define the TSP GetType request
-pub struct GetTypeRequest;
+#[allow(dead_code)]
+pub(crate) struct GetTypeRequest;
 
 impl Request for GetTypeRequest {
     type Params = GetTypeParams;
@@ -23,10 +24,10 @@ impl Request for GetTypeRequest {
     const METHOD: &'static str = "typeServer/getType";
 }
 
-pub struct GetTypeRequestHandler;
+pub(crate) struct GetTypeRequestHandler;
 
 impl GetTypeRequestHandler {
-    pub fn document_url(params: &GetTypeParams) -> Cow<'_, Url> {
+    pub(crate) fn document_url(params: &GetTypeParams) -> Cow<'_, Url> {
         // Convert the URI string to a URL
         match Url::parse(&params.node.uri) {
             Ok(url) => Cow::Owned(url),
@@ -34,7 +35,7 @@ impl GetTypeRequestHandler {
                 // If parsing fails, create a file URL as fallback
                 match Url::from_file_path(&params.node.uri) {
                     Ok(url) => Cow::Owned(url),
-                    Err(_) => {
+                    Err(()) => {
                         // Last resort - create a dummy URL
                         Cow::Owned(Url::parse("file:///unknown").unwrap())
                     }
@@ -43,14 +44,14 @@ impl GetTypeRequestHandler {
         }
     }
 
-    pub fn handle_request(
+    pub(crate) fn handle_request(
         id: &lsp_server::RequestId,
         db: &ProjectDatabase,
-        snapshot: crate::session::DocumentSnapshot,
+        snapshot: &crate::session::DocumentSnapshot,
         client: &Client,
-        params: GetTypeParams,
+        params: &GetTypeParams,
     ) {
-        let result = Self::run_with_snapshot(db, &snapshot, client, params);
+        let result = Self::run_with_snapshot(db, snapshot, client, params);
 
         if let Err(err) = &result {
             tracing::error!("An error occurred with request ID {id}: {err}");
@@ -64,7 +65,7 @@ impl GetTypeRequestHandler {
         db: &ProjectDatabase,
         snapshot: &DocumentSnapshot,
         _client: &Client,
-        params: GetTypeParams,
+        params: &GetTypeParams,
     ) -> crate::server::Result<GetTypeResponse> {
         let Some(file) = snapshot.file(db) else {
             return Err(crate::server::api::Error::new(

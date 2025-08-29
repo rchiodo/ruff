@@ -1,5 +1,7 @@
 #![allow(clippy::all)]
 #![allow(dead_code)]
+#![allow(unreachable_pub)]
+#![allow(clippy::doc_markdown)]
 
 // Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
@@ -1094,7 +1096,7 @@ pub struct Type {
     /// Essential classification of the Type.
     pub category: TypeCategory,
 
-    /// Flags specific to the category. For example, for a class type, this would be ClassFlags. For a function type, this would be FunctionFlags.
+    /// Flags specific to the category. For example, for a class type, this would be `ClassFlags`. For a function type, this would be `FunctionFlags`.
     pub category_flags: i32,
 
     /// Declaration of the type, if available.
@@ -1519,7 +1521,7 @@ pub struct GetSnapshotRequest {
     pub params: Option<LSPNull>,
 }
 
-/// Response to the [GetSnapshotRequest].
+/// Response to the [`GetSnapshotRequest`].
 pub type GetSnapshotResponse = i32;
 
 /// Request to get the version of the protocol the type server supports. Returns a string representation of the protocol version (should be semver format).
@@ -1535,7 +1537,7 @@ pub struct GetSupportedProtocolVersionRequest {
     pub params: Option<LSPNull>,
 }
 
-/// Response to the [GetSupportedProtocolVersionRequest].
+/// Response to the [`GetSupportedProtocolVersionRequest`].
 pub type GetSupportedProtocolVersionResponse = String;
 
 /// Request to get diagnostics for a specific file.
@@ -1551,7 +1553,7 @@ pub struct GetDiagnosticsRequest {
     pub params: GetDiagnosticsParams,
 }
 
-/// Response to the [GetDiagnosticsRequest].
+/// Response to the [`GetDiagnosticsRequest`].
 pub type GetDiagnosticsResponse = Vec<Diagnostic>;
 
 /// Request to get the version of diagnostics for a specific file.
@@ -1567,7 +1569,7 @@ pub struct GetDiagnosticsVersionRequest {
     pub params: GetDiagnosticsVersionParams,
 }
 
-/// Response to the [GetDiagnosticsVersionRequest].
+/// Response to the [`GetDiagnosticsVersionRequest`].
 pub type GetDiagnosticsVersionResponse = i32;
 
 /// Request to get the type information for a specific node.
@@ -1583,7 +1585,7 @@ pub struct GetTypeRequest {
     pub params: GetTypeParams,
 }
 
-/// Response to the [GetTypeRequest].
+/// Response to the [`GetTypeRequest`].
 pub type GetTypeResponse = Type;
 
 /// Request to get the type information for a specific builtin type.
@@ -1599,7 +1601,7 @@ pub struct GetBuiltinTypeRequest {
     pub params: GetBuiltinTypeParams,
 }
 
-/// Response to the [GetBuiltinTypeRequest].
+/// Response to the [`GetBuiltinTypeRequest`].
 pub type GetBuiltinTypeResponse = Type;
 
 /// Request to get the collection of subtypes that make up a union type or the types that makes up a generic type.
@@ -1615,7 +1617,7 @@ pub struct GetTypeArgsRequest {
     pub params: GetTypeArgsParams,
 }
 
-/// Response to the [GetTypeArgsRequest].
+/// Response to the [`GetTypeArgsRequest`].
 pub type GetTypeArgsResponse = Vec<Type>;
 
 /// Request to find symbols from a type.
@@ -1631,7 +1633,7 @@ pub struct GetSymbolsForTypeRequest {
     pub params: GetSymbolsForTypeParams,
 }
 
-/// Response to the [GetSymbolsForTypeRequest].
+/// Response to the [`GetSymbolsForTypeRequest`].
 pub type GetSymbolsForTypeResponse = Vec<Symbol>;
 
 /// Request to find symbols from a node.
