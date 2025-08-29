@@ -31,6 +31,7 @@ mod initialize;
 mod inlay_hints;
 mod publish_diagnostics;
 mod pull_diagnostics;
+mod tsp;
 
 use std::collections::hash_map::Entry;
 use std::collections::{HashMap, VecDeque};
@@ -68,8 +69,9 @@ use lsp_types::{
 use ruff_db::system::{OsSystem, SystemPath, SystemPathBuf, TestSystem};
 use rustc_hash::FxHashMap;
 use tempfile::TempDir;
+use ty_server::{GetTypeParams, GetTypeResponse, Node, TspPosition, TspRange};
 
-use ty_server::{ClientOptions, LogLevel, Server, init_logging};
+use ty_server::{ClientOptions, LogLevel, Server, TspServer, init_logging};
 
 /// Number of times to retry receiving a message before giving up
 const RETRY_COUNT: usize = 5;
@@ -162,6 +164,7 @@ impl TestServer {
         test_context: TestContext,
         capabilities: ClientCapabilities,
         initialization_options: Option<ClientOptions>,
+        use_tsp: bool,
     ) -> Result<Self> {
         setup_tracing();
 
@@ -178,7 +181,12 @@ impl TestServer {
 
             match Server::new(worker_threads, server_connection, test_system, true) {
                 Ok(server) => {
-                    if let Err(err) = server.run() {
+                    let result = if use_tsp {
+                        server.run_tsp()
+                    } else {
+                        server.run()
+                    };
+                    if let Err(err) = result {
                         panic!("Server stopped with error: {err:?}");
                     }
                 }
@@ -396,6 +404,20 @@ impl TestServer {
                         .into());
                     }
                 }
+            }
+
+            self.receive_or_panic()?;
+        }
+    }
+
+    /// Wait for a response with the specified ID from the server and return the raw response.
+    ///
+    /// Similar to [`await_response`] but returns the raw [`Response`] instead of deserializing.
+    /// This is useful for custom request types that don't implement the standard LSP Request trait.
+    pub(crate) fn await_response_raw(&mut self, id: &RequestId) -> Result<Response> {
+        loop {
+            if let Some(response) = self.responses.remove(id) {
+                return Ok(response);
             }
 
             self.receive_or_panic()?;
@@ -728,6 +750,56 @@ impl TestServer {
         self.await_response::<HoverRequest>(&id)
     }
 
+    /// Send a `typeServer/getType` TSP request for the document at the given path and position.
+    pub(crate) fn tsp_get_type_request(
+        &mut self,
+        path: impl AsRef<SystemPath>,
+        position: Position,
+    ) -> Result<GetTypeResponse> {
+        // Convert LSP position to a range for the TSP Node
+        let range = TspRange {
+            start: TspPosition {
+                line: position.line,
+                character: position.character,
+            },
+            end: TspPosition {
+                line: position.line,
+                character: position.character + 1, // Single character range
+            },
+        };
+
+        let params = GetTypeParams {
+            node: Node {
+                range,
+                uri: self.file_uri(path).to_string(),
+            },
+            snapshot: 0, // Use snapshot version 0 for tests
+        };
+
+        // Create a custom request since TSP requests don't use the standard LSP Request trait
+        let request = lsp_server::Request {
+            id: self.next_request_id(),
+            method: "typeServer/getType".to_string(),
+            params: serde_json::to_value(params).unwrap(),
+        };
+
+        let id = request.id.clone();
+        self.send(lsp_server::Message::Request(request));
+
+        // Wait for the response and extract the result
+        let response = self.await_response_raw(&id)?;
+        match response.result {
+            Some(result) => Ok(serde_json::from_value(result)?),
+            None => {
+                if let Some(error) = response.error {
+                    anyhow::bail!("TSP request failed: {:?}", error);
+                } else {
+                    anyhow::bail!("TSP request returned no result");
+                }
+            }
+        }
+    }
+
     /// Sends a `textDocument/inlayHint` request for the document at the given path and range.
     pub(crate) fn inlay_hints_request(
         &mut self,
@@ -811,6 +883,7 @@ pub(crate) struct TestServerBuilder {
     workspaces: Vec<(WorkspaceFolder, Option<ClientOptions>)>,
     initialization_options: Option<ClientOptions>,
     client_capabilities: ClientCapabilities,
+    use_tsp: bool,
 }
 
 impl TestServerBuilder {
@@ -841,12 +914,19 @@ impl TestServerBuilder {
             test_context: TestContext::new()?,
             initialization_options: None,
             client_capabilities,
+            use_tsp: false,
         })
     }
 
     /// Set the initial client options for the test server
     pub(crate) fn with_initialization_options(mut self, options: ClientOptions) -> Self {
         self.initialization_options = Some(options);
+        self
+    }
+
+    /// Enable TSP (Type Server Protocol) mode for the test server
+    pub(crate) fn with_tsp(mut self) -> Self {
+        self.use_tsp = true;
         self
     }
 
@@ -997,6 +1077,7 @@ impl TestServerBuilder {
             self.test_context,
             self.client_capabilities,
             self.initialization_options,
+            self.use_tsp,
         )
     }
 }

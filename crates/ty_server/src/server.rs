@@ -16,7 +16,7 @@ mod api;
 mod lazy_work_done_progress;
 mod main_loop;
 mod schedule;
-mod tsp;
+pub mod tsp;
 mod tsp_server;
 
 use crate::session::client::Client;
