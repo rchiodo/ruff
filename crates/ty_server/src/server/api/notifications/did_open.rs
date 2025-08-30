@@ -44,7 +44,7 @@ impl SyncNotificationHandler for DidOpenTextDocumentHandler {
         };
 
         let document = TextDocument::new(text, version).with_language_id(&language_id);
-        session.open_text_document(key.path(), document);
+        session.open_text_document(key.path(), document, Some(client));
 
         let path = key.path();
 
@@ -68,7 +68,7 @@ impl SyncNotificationHandler for DidOpenTextDocumentHandler {
                 } else {
                     ChangeEvent::Opened(system_path.clone())
                 };
-                session.apply_changes(path, vec![event]);
+                session.apply_changes(path, vec![event], Some(client));
 
                 let db = session.project_db_mut(path);
                 match system_path_to_file(db, system_path) {

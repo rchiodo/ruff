@@ -18,7 +18,7 @@ impl NotificationHandler for DidCloseNotebookHandler {
 impl SyncNotificationHandler for DidCloseNotebookHandler {
     fn run(
         session: &mut Session,
-        _client: &Client,
+        client: &Client,
         params: DidCloseNotebookDocumentParams,
     ) -> Result<()> {
         let DidCloseNotebookDocumentParams {
@@ -35,13 +35,14 @@ impl SyncNotificationHandler for DidCloseNotebookHandler {
         };
 
         session
-            .close_document(&key)
+            .close_document(&key, Some(client))
             .with_failure_code(lsp_server::ErrorCode::InternalError)?;
 
         if let AnySystemPath::SystemVirtual(virtual_path) = key.path() {
             session.apply_changes(
                 key.path(),
                 vec![ChangeEvent::DeletedVirtual(virtual_path.clone())],
+                Some(client),
             );
         }
 

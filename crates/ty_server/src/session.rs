@@ -243,8 +243,14 @@ impl Session {
     ///
     /// In general, any change to a project database should bump the revision and so should
     /// any change to the document states (but also when the open workspaces change etc.).
-    fn bump_revision(&mut self) {
+    /// If a client is provided, a global state change event will be emitted.
+    fn bump_revision(&mut self, client: Option<&Client>) {
         self.revision += 1;
+        if let Some(client) = client {
+            client.queue_action(Action::GlobalStateChanged {
+                revision: self.revision,
+            });
+        }
     }
 
     /// The LSP specification doesn't allow configuration requests during initialization,
@@ -409,6 +415,7 @@ impl Session {
         &mut self,
         path: &AnySystemPath,
         changes: Vec<ChangeEvent>,
+        client: Option<&Client>,
     ) -> ChangeResult {
         let overrides = path.as_system().and_then(|root| {
             self.workspaces()
@@ -418,7 +425,7 @@ impl Session {
                 .cloned()
         });
 
-        self.bump_revision();
+        self.bump_revision(client);
 
         self.project_db_mut(path)
             .apply_changes(changes, overrides.as_ref())
@@ -867,16 +874,22 @@ impl Session {
         &mut self,
         path: &AnySystemPath,
         document: NotebookDocument,
+        client: Option<&Client>,
     ) {
         self.index_mut().open_notebook_document(path, document);
-        self.bump_revision();
+        self.bump_revision(client);
     }
 
     /// Registers a text document at the provided `path`.
     /// If a document is already open here, it will be overwritten.
-    pub(crate) fn open_text_document(&mut self, path: &AnySystemPath, document: TextDocument) {
+    pub(crate) fn open_text_document(
+        &mut self,
+        path: &AnySystemPath,
+        document: TextDocument,
+        client: Option<&Client>,
+    ) {
         self.index_mut().open_text_document(path, document);
-        self.bump_revision();
+        self.bump_revision(client);
     }
 
     /// Updates a text document at the associated `key`.
@@ -887,6 +900,7 @@ impl Session {
         key: &DocumentKey,
         content_changes: Vec<TextDocumentContentChangeEvent>,
         new_version: DocumentVersion,
+        client: Option<&Client>,
     ) -> crate::Result<()> {
         let position_encoding = self.position_encoding;
         self.index_mut().update_text_document(
@@ -895,15 +909,19 @@ impl Session {
             new_version,
             position_encoding,
         )?;
-        self.bump_revision();
+        self.bump_revision(client);
         Ok(())
     }
 
     /// De-registers a document, specified by its key.
     /// Calling this multiple times for the same document is a logic error.
-    pub(crate) fn close_document(&mut self, key: &DocumentKey) -> crate::Result<()> {
+    pub(crate) fn close_document(
+        &mut self,
+        key: &DocumentKey,
+        client: Option<&Client>,
+    ) -> crate::Result<()> {
         self.index_mut().close_document(key)?;
-        self.bump_revision();
+        self.bump_revision(client);
         Ok(())
     }
 

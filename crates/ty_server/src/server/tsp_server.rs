@@ -255,6 +255,16 @@ impl TspServer {
                         // paths into account.
                         // self.try_register_file_watcher(&client);
                     }
+
+                    Action::GlobalStateChanged { revision } => {
+                        // For now, just log that the global state changed in TSP server
+                        // In the future, this could be used to notify TSP clients,
+                        // invalidate type caches, trigger re-computation, etc.
+                        tracing::debug!(
+                            "TSP Server: Global state changed (revision: {})",
+                            revision
+                        );
+                    }
                 },
             }
         }

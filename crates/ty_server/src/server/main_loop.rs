@@ -157,6 +157,13 @@ impl Server {
                         // paths into account.
                         // self.try_register_file_watcher(&client);
                     }
+
+                    Action::GlobalStateChanged { revision } => {
+                        // For now, just log that the global state changed
+                        // In the future, this could be used to notify TSP clients,
+                        // invalidate caches, trigger re-computation, etc.
+                        tracing::debug!("Global state changed (revision: {})", revision);
+                    }
                 },
             }
         }
@@ -302,6 +309,14 @@ pub(crate) enum Action {
     /// Initialize the workspace after the server received
     /// the options from the client.
     InitializeWorkspaces(Vec<(Url, ClientOptions)>),
+
+    /// Notify that the global state has changed.
+    /// This is fired whenever the internal state changes (documents opening/changing/closing,
+    /// files changing on disk, etc.) and can be used by TSP servers or other consumers
+    /// to know when to invalidate caches or re-compute type information.
+    GlobalStateChanged {
+        revision: u64,
+    },
 }
 
 #[derive(Debug)]

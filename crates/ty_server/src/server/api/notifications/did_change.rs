@@ -37,7 +37,7 @@ impl SyncNotificationHandler for DidChangeTextDocumentHandler {
         };
 
         session
-            .update_text_document(&key, content_changes, version)
+            .update_text_document(&key, content_changes, version, Some(client))
             .with_failure_code(ErrorCode::InternalError)?;
 
         let changes = match key.path() {
@@ -49,7 +49,7 @@ impl SyncNotificationHandler for DidChangeTextDocumentHandler {
             }
         };
 
-        session.apply_changes(key.path(), changes);
+        session.apply_changes(key.path(), changes, Some(client));
 
         publish_diagnostics(session, &key, client);
 

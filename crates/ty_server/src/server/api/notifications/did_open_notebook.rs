@@ -22,7 +22,7 @@ impl NotificationHandler for DidOpenNotebookHandler {
 impl SyncNotificationHandler for DidOpenNotebookHandler {
     fn run(
         session: &mut Session,
-        _client: &Client,
+        client: &Client,
         params: DidOpenNotebookDocumentParams,
     ) -> Result<()> {
         let Ok(path) = AnySystemPath::try_from_url(&params.notebook_document.uri) else {
@@ -36,11 +36,15 @@ impl SyncNotificationHandler for DidOpenNotebookHandler {
             params.cell_text_documents,
         )
         .with_failure_code(ErrorCode::InternalError)?;
-        session.open_notebook_document(&path, notebook);
+        session.open_notebook_document(&path, notebook, Some(client));
 
         match &path {
             AnySystemPath::System(system_path) => {
-                session.apply_changes(&path, vec![ChangeEvent::Opened(system_path.clone())]);
+                session.apply_changes(
+                    &path,
+                    vec![ChangeEvent::Opened(system_path.clone())],
+                    Some(client),
+                );
             }
             AnySystemPath::SystemVirtual(virtual_path) => {
                 let db = session.project_db_mut(&path);

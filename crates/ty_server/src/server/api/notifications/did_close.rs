@@ -36,7 +36,7 @@ impl SyncNotificationHandler for DidCloseTextDocumentHandler {
         };
 
         session
-            .close_document(&key)
+            .close_document(&key, Some(client))
             .with_failure_code(ErrorCode::InternalError)?;
 
         let path = key.path();
