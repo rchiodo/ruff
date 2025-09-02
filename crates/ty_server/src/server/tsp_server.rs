@@ -63,12 +63,17 @@ use super::{Action, Event};
 pub struct TspServer {
     /// The inner LSP server that handles standard LSP requests
     inner: Server,
+    /// The current revision number, updated when global state changes
+    current_revision: u64,
 }
 
 impl TspServer {
     /// Create a new TSP server wrapping the given LSP server.
     pub fn new(inner: Server) -> Self {
-        Self { inner }
+        Self {
+            inner,
+            current_revision: 0,
+        }
     }
 
     /// Run the TSP server main loop, handling both TSP and LSP messages.
@@ -139,7 +144,7 @@ impl TspServer {
 
                             // Route TSP requests to TSP handler, LSP requests to LSP handler
                             if Self::is_tsp_request(&req.method) {
-                                tsp_api::request(req)
+                                tsp_api::request(req, self.current_revision)
                             } else {
                                 api::request(req)
                             }
@@ -219,7 +224,7 @@ impl TspServer {
                             .is_pending(&request.id)
                         {
                             let task = if Self::is_tsp_request(&request.method) {
-                                tsp_api::request(request)
+                                tsp_api::request(request, self.current_revision)
                             } else {
                                 api::request(request)
                             };
@@ -257,6 +262,8 @@ impl TspServer {
                     }
 
                     Action::GlobalStateChanged { revision } => {
+                        // Update our tracked revision
+                        self.current_revision = revision;
                         // For now, just log that the global state changed in TSP server
                         // In the future, this could be used to notify TSP clients,
                         // invalidate type caches, trigger re-computation, etc.
@@ -316,7 +323,7 @@ mod tsp_api {
     }
 
     /// Processes a TSP request from the client to the server.
-    pub(super) fn request(req: server::Request) -> Task {
+    pub(super) fn request(req: server::Request, current_revision: u64) -> Task {
         let request_id = req.id.clone();
 
         // Parse the entire request (method + params) as a TSP request enum
@@ -371,6 +378,16 @@ mod tsp_api {
 
                 // Return the protocol version immediately
                 let result = Ok(tsp::TYPE_SERVER_VERSION.to_string());
+                Task::immediate(request_id, result)
+            }
+
+            TSPRequests::GetSnapshotRequest { id } => {
+                // Convert serde_json::Value to lsp_server::RequestId
+                let request_id = handle_request_id!(id, request_id);
+
+                // Return the current revision as the snapshot version
+                #[allow(clippy::cast_possible_truncation)]
+                let result = Ok(current_revision as i32);
                 Task::immediate(request_id, result)
             }
 
