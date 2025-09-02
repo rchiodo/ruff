@@ -185,6 +185,340 @@ value = first_item.get(\"a\")
     Ok(())
 }
 
+/// Test typeServer/getType request for basic Python literals
+#[test]
+fn get_type_basic_literals() -> Result<()> {
+    let workspace_root = SystemPath::new("src");
+    let foo_py = SystemPath::new("src/foo.py");
+    let foo_content = "\
+# Test basic literals
+integer_var = 42
+string_var = \"hello world\"
+float_var = 3.14
+bool_var = True
+none_var = None
+list_var = [1, 2, 3]
+dict_var = {\"key\": \"value\"}
+";
+
+    let mut server = TestServerBuilder::new()?
+        .with_tsp()
+        .with_workspace(workspace_root, None)?
+        .with_file(foo_py, foo_content)?
+        .build()?
+        .wait_until_workspaces_are_initialized()?;
+
+    server.open_text_document(foo_py, &foo_content, 1);
+    let _ = server.await_notification::<PublishDiagnostics>()?;
+
+    // Test integer literal
+    let integer_result = server.tsp_get_type_request(foo_py, Position::new(1, 14))?; // Position at '42'
+    assert!(
+        integer_result.name.len() > 0,
+        "Integer type name should not be empty"
+    );
+    insta::assert_json_snapshot!("get_type_integer_literal", integer_result);
+
+    // Test string literal
+    let string_result = server.tsp_get_type_request(foo_py, Position::new(2, 14))?; // Position at '"hello world"'
+    assert!(
+        string_result.name.len() > 0,
+        "String type name should not be empty"
+    );
+    insta::assert_json_snapshot!("get_type_string_literal", string_result);
+
+    // Test boolean literal
+    let bool_result = server.tsp_get_type_request(foo_py, Position::new(4, 11))?; // Position at 'True'
+    assert!(
+        bool_result.name.len() > 0,
+        "Boolean type name should not be empty"
+    );
+    insta::assert_json_snapshot!("get_type_boolean_literal", bool_result);
+
+    Ok(())
+}
+
+/// Test typeServer/getType request for function calls and return types
+#[test]
+fn get_type_function_calls() -> Result<()> {
+    let workspace_root = SystemPath::new("src");
+    let foo_py = SystemPath::new("src/foo.py");
+    let foo_content = "\
+def simple_function(x: int) -> str:
+    return str(x)
+
+def generic_function(x):
+    return x * 2
+
+# Function calls
+result1 = simple_function(42)
+result2 = generic_function(\"hello\")
+result3 = len([1, 2, 3])
+";
+
+    let mut server = TestServerBuilder::new()?
+        .with_tsp()
+        .with_workspace(workspace_root, None)?
+        .with_file(foo_py, foo_content)?
+        .build()?
+        .wait_until_workspaces_are_initialized()?;
+
+    server.open_text_document(foo_py, &foo_content, 1);
+    let _ = server.await_notification::<PublishDiagnostics>()?;
+
+    // Test function definition
+    let func_def_result = server.tsp_get_type_request(foo_py, Position::new(0, 4))?; // "simple_function"
+    assert!(
+        func_def_result.name.len() > 0,
+        "Function definition type should not be empty"
+    );
+    insta::assert_json_snapshot!("get_type_function_definition", func_def_result);
+
+    // Test function call result with type annotation
+    let annotated_call_result = server.tsp_get_type_request(foo_py, Position::new(7, 10))?; // "simple_function(42)"
+    assert!(
+        annotated_call_result.name.len() > 0,
+        "Annotated function call result should not be empty"
+    );
+    insta::assert_json_snapshot!("get_type_annotated_function_call", annotated_call_result);
+
+    // Test builtin function call
+    let builtin_call_result = server.tsp_get_type_request(foo_py, Position::new(9, 10))?; // "len([1, 2, 3])"
+    assert!(
+        builtin_call_result.name.len() > 0,
+        "Builtin function call result should not be empty"
+    );
+    insta::assert_json_snapshot!("get_type_builtin_function_call", builtin_call_result);
+
+    Ok(())
+}
+
+/// Test typeServer/getType request for class instantiation and method calls
+#[test]
+fn get_type_classes_and_instances() -> Result<()> {
+    let workspace_root = SystemPath::new("src");
+    let foo_py = SystemPath::new("src/foo.py");
+    let foo_content = "\
+class MyClass:
+    def __init__(self, value: int):
+        self.value = value
+    
+    def get_value(self) -> int:
+        return self.value
+    
+    def double_value(self):
+        return self.value * 2
+
+# Class instantiation and method calls
+obj = MyClass(42)
+value_result = obj.get_value()
+double_result = obj.double_value()
+attribute_access = obj.value
+";
+
+    let mut server = TestServerBuilder::new()?
+        .with_tsp()
+        .with_workspace(workspace_root, None)?
+        .with_file(foo_py, foo_content)?
+        .build()?
+        .wait_until_workspaces_are_initialized()?;
+
+    server.open_text_document(foo_py, &foo_content, 1);
+    let _ = server.await_notification::<PublishDiagnostics>()?;
+
+    // Test class definition
+    let class_def_result = server.tsp_get_type_request(foo_py, Position::new(0, 6))?; // "MyClass"
+    assert!(
+        class_def_result.name.len() > 0,
+        "Class definition type should not be empty"
+    );
+    insta::assert_json_snapshot!("get_type_class_definition", class_def_result);
+
+    // Test instance variable
+    let instance_result = server.tsp_get_type_request(foo_py, Position::new(11, 6))?; // "MyClass(42)"
+    assert!(
+        instance_result.name.len() > 0,
+        "Class instance type should not be empty"
+    );
+    insta::assert_json_snapshot!("get_type_class_instance", instance_result);
+
+    // Test method call with return annotation
+    let annotated_method_result = server.tsp_get_type_request(foo_py, Position::new(12, 14))?; // "obj.get_value()"
+    assert!(
+        annotated_method_result.name.len() > 0,
+        "Annotated method call result should not be empty"
+    );
+    insta::assert_json_snapshot!("get_type_annotated_method_call", annotated_method_result);
+
+    // Test attribute access
+    let attribute_result = server.tsp_get_type_request(foo_py, Position::new(14, 18))?; // "obj.value"
+    assert!(
+        attribute_result.name.len() > 0,
+        "Attribute access type should not be empty"
+    );
+    insta::assert_json_snapshot!("get_type_attribute_access", attribute_result);
+
+    Ok(())
+}
+
+/// Test typeServer/getType request for collection types and indexing
+#[test]
+fn get_type_collections_and_indexing() -> Result<()> {
+    let workspace_root = SystemPath::new("src");
+    let foo_py = SystemPath::new("src/foo.py");
+    let foo_content = "\
+from typing import List, Dict, Tuple
+
+# Collection literals
+my_list = [1, 2, 3]
+my_dict = {\"a\": 1, \"b\": 2}
+my_tuple = (1, \"hello\", 3.14)
+
+# Collection indexing
+list_item = my_list[0]
+dict_item = my_dict[\"a\"]
+tuple_item = my_tuple[1]
+
+# Collection methods
+list_length = len(my_list)
+dict_keys = my_dict.keys()
+";
+
+    let mut server = TestServerBuilder::new()?
+        .with_tsp()
+        .with_workspace(workspace_root, None)?
+        .with_file(foo_py, foo_content)?
+        .build()?
+        .wait_until_workspaces_are_initialized()?;
+
+    server.open_text_document(foo_py, &foo_content, 1);
+    let _ = server.await_notification::<PublishDiagnostics>()?;
+
+    // Test list literal
+    let list_result = server.tsp_get_type_request(foo_py, Position::new(3, 10))?; // "[1, 2, 3]"
+    assert!(list_result.name.len() > 0, "List type should not be empty");
+    insta::assert_json_snapshot!("get_type_list_literal", list_result);
+
+    // Test dict literal
+    let dict_result = server.tsp_get_type_request(foo_py, Position::new(4, 10))?; // "{\"a\": 1, \"b\": 2}"
+    assert!(dict_result.name.len() > 0, "Dict type should not be empty");
+    insta::assert_json_snapshot!("get_type_dict_literal", dict_result);
+
+    // Test list indexing
+    let list_index_result = server.tsp_get_type_request(foo_py, Position::new(8, 12))?; // "my_list[0]"
+    assert!(
+        list_index_result.name.len() > 0,
+        "List indexing result should not be empty"
+    );
+    insta::assert_json_snapshot!("get_type_list_indexing", list_index_result);
+
+    // Test dict method call
+    let dict_method_result = server.tsp_get_type_request(foo_py, Position::new(14, 12))?; // "my_dict.keys()"
+    assert!(
+        dict_method_result.name.len() > 0,
+        "Dict method result should not be empty"
+    );
+    insta::assert_json_snapshot!("get_type_dict_method", dict_method_result);
+
+    Ok(())
+}
+
+/// Test typeServer/getType request for error cases and edge conditions
+#[test]
+fn get_type_error_cases() -> Result<()> {
+    let workspace_root = SystemPath::new("src");
+    let foo_py = SystemPath::new("src/foo.py");
+    let foo_content = "\
+x = 42
+# This is a comment
+    # Indented comment
+";
+
+    let mut server = TestServerBuilder::new()?
+        .with_tsp()
+        .with_workspace(workspace_root, None)?
+        .with_file(foo_py, foo_content)?
+        .build()?
+        .wait_until_workspaces_are_initialized()?;
+
+    server.open_text_document(foo_py, &foo_content, 1);
+    let _ = server.await_notification::<PublishDiagnostics>()?;
+
+    // Test position in whitespace (should handle gracefully)
+    let whitespace_result = server.tsp_get_type_request(foo_py, Position::new(0, 1))?; // Between 'x' and '='
+    insta::assert_json_snapshot!("get_type_whitespace", whitespace_result);
+
+    // Test position in comment
+    let comment_result = server.tsp_get_type_request(foo_py, Position::new(1, 5))?; // Inside comment
+    insta::assert_json_snapshot!("get_type_comment", comment_result);
+
+    // Test position at end of line
+    let eol_result = server.tsp_get_type_request(foo_py, Position::new(0, 6))?; // End of "x = 42"
+    insta::assert_json_snapshot!("get_type_end_of_line", eol_result);
+
+    Ok(())
+}
+
+/// Test typeServer/getType request for expressions with type annotations
+#[test]
+fn get_type_annotated_expressions() -> Result<()> {
+    let workspace_root = SystemPath::new("src");
+    let foo_py = SystemPath::new("src/foo.py");
+    let foo_content = "\
+from typing import Optional, Union, List
+
+# Variable annotations
+annotated_var: int = 42
+optional_var: Optional[str] = None
+union_var: Union[int, str] = \"hello\"
+list_var: List[int] = [1, 2, 3]
+
+# Function with annotations
+def typed_function(param: str) -> Optional[int]:
+    if param.isdigit():
+        return int(param)
+    return None
+
+result = typed_function(\"123\")
+";
+
+    let mut server = TestServerBuilder::new()?
+        .with_tsp()
+        .with_workspace(workspace_root, None)?
+        .with_file(foo_py, foo_content)?
+        .build()?
+        .wait_until_workspaces_are_initialized()?;
+
+    server.open_text_document(foo_py, &foo_content, 1);
+    let _ = server.await_notification::<PublishDiagnostics>()?;
+
+    // Test annotated variable
+    let annotated_var_result = server.tsp_get_type_request(foo_py, Position::new(3, 13))?; // "annotated_var"
+    assert!(
+        annotated_var_result.name.len() > 0,
+        "Annotated variable type should not be empty"
+    );
+    insta::assert_json_snapshot!("get_type_annotated_variable", annotated_var_result);
+
+    // Test optional variable
+    let optional_var_result = server.tsp_get_type_request(foo_py, Position::new(4, 12))?; // "optional_var"
+    assert!(
+        optional_var_result.name.len() > 0,
+        "Optional variable type should not be empty"
+    );
+    insta::assert_json_snapshot!("get_type_optional_variable", optional_var_result);
+
+    // Test function call with Optional return type
+    let optional_return_result = server.tsp_get_type_request(foo_py, Position::new(14, 9))?; // "typed_function(\"123\")"
+    assert!(
+        optional_return_result.name.len() > 0,
+        "Optional return type should not be empty"
+    );
+    insta::assert_json_snapshot!("get_type_optional_return", optional_return_result);
+
+    Ok(())
+}
+
 /// Test typeServer/getSupportedProtocolVersion request
 #[test]
 fn get_supported_protocol_version() -> Result<()> {
