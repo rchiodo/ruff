@@ -309,7 +309,7 @@ impl clap::Args for RulesArg {
 /// The diagnostic output format.
 #[derive(Copy, Clone, Hash, Debug, PartialEq, Eq, PartialOrd, Ord, Default, clap::ValueEnum)]
 pub enum OutputFormat {
-    /// Print diagnostics verbosely, with context and helpful hints \[default\].
+    /// Print diagnostics verbosely, with context and helpful hints (default).
     ///
     /// Diagnostic messages may include additional context and
     /// annotations on the input to help understand the message.
@@ -324,6 +324,9 @@ pub enum OutputFormat {
     /// dropped.
     #[value(name = "concise")]
     Concise,
+    /// Print diagnostics in the JSON format expected by GitLab Code Quality reports.
+    #[value(name = "gitlab")]
+    Gitlab,
 }
 
 impl From<OutputFormat> for ty_project::metadata::options::OutputFormat {
@@ -331,6 +334,7 @@ impl From<OutputFormat> for ty_project::metadata::options::OutputFormat {
         match format {
             OutputFormat::Full => Self::Full,
             OutputFormat::Concise => Self::Concise,
+            OutputFormat::Gitlab => Self::Gitlab,
         }
     }
 }

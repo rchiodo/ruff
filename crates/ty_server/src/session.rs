@@ -833,6 +833,7 @@ impl Session {
             .map_err(DocumentQueryError::InvalidUrl);
         DocumentSnapshot {
             resolved_client_capabilities: self.resolved_client_capabilities,
+            global_settings: self.global_settings.clone(),
             workspace_settings: key
                 .as_ref()
                 .ok()
@@ -1018,6 +1019,7 @@ impl Drop for MutIndexGuard<'_> {
 #[derive(Debug)]
 pub(crate) struct DocumentSnapshot {
     resolved_client_capabilities: ResolvedClientCapabilities,
+    global_settings: Arc<GlobalSettings>,
     workspace_settings: Arc<WorkspaceSettings>,
     position_encoding: PositionEncoding,
     document_query_result: Result<DocumentQuery, DocumentQueryError>,
@@ -1032,6 +1034,11 @@ impl DocumentSnapshot {
     /// Returns the position encoding that was negotiated during initialization.
     pub(crate) fn encoding(&self) -> PositionEncoding {
         self.position_encoding
+    }
+
+    /// Returns the client settings for all workspaces.
+    pub(crate) fn global_settings(&self) -> &GlobalSettings {
+        &self.global_settings
     }
 
     /// Returns the client settings for the workspace that this document belongs to.

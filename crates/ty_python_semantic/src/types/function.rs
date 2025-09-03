@@ -65,7 +65,7 @@ use crate::semantic_index::definition::Definition;
 use crate::semantic_index::scope::ScopeId;
 use crate::semantic_index::semantic_index;
 use crate::types::call::{Binding, CallArguments};
-use crate::types::constraints::Constraints;
+use crate::types::constraints::{ConstraintSet, Constraints};
 use crate::types::context::InferContext;
 use crate::types::diagnostic::{
     INVALID_ARGUMENT_TYPE, REDUNDANT_CAST, STATIC_ASSERT_ERROR, TYPE_ASSERTION_FAILURE,
@@ -569,7 +569,7 @@ impl<'db> FunctionLiteral<'db> {
             if overloads.is_empty() {
                 return CallableSignature::single(type_mappings.iter().fold(
                     implementation.signature(db, inherited_generic_context),
-                    |ty, mapping| ty.apply_type_mapping(db, mapping),
+                    |sig, mapping| sig.apply_type_mapping(db, mapping),
                 ));
             }
         }
@@ -577,7 +577,7 @@ impl<'db> FunctionLiteral<'db> {
         CallableSignature::from_overloads(overloads.iter().map(|overload| {
             type_mappings.iter().fold(
                 overload.signature(db, inherited_generic_context),
-                |ty, mapping| ty.apply_type_mapping(db, mapping),
+                |sig, mapping| sig.apply_type_mapping(db, mapping),
             )
         }))
     }
@@ -602,7 +602,7 @@ impl<'db> FunctionLiteral<'db> {
         type_mappings.iter().fold(
             self.last_definition(db)
                 .signature(db, inherited_generic_context),
-            |ty, mapping| ty.apply_type_mapping(db, mapping),
+            |sig, mapping| sig.apply_type_mapping(db, mapping),
         )
     }
 
@@ -719,6 +719,22 @@ impl<'db> FunctionType<'db> {
     /// conditions.
     pub(crate) fn has_known_decorator(self, db: &dyn Db, decorator: FunctionDecorators) -> bool {
         self.literal(db).has_known_decorator(db, decorator)
+    }
+
+    /// Returns true if this method is decorated with `@classmethod`, or if it is implicitly a
+    /// classmethod.
+    pub(crate) fn is_classmethod(self, db: &'db dyn Db) -> bool {
+        self.has_known_decorator(db, FunctionDecorators::CLASSMETHOD)
+            || matches!(
+                self.name(db).as_str(),
+                "__init_subclass__" | "__class_getitem__"
+            )
+    }
+
+    /// Returns true if this method is decorated with `@staticmethod`, or if it is implicitly a
+    /// static method.
+    pub(crate) fn is_staticmethod(self, db: &'db dyn Db) -> bool {
+        self.has_known_decorator(db, FunctionDecorators::STATICMETHOD) || self.name(db) == "__new__"
     }
 
     /// If the implementation of this function is deprecated, returns the `@warnings.deprecated`.
@@ -1172,6 +1188,10 @@ pub enum KnownFunction {
     HasMember,
     /// `ty_extensions.reveal_protocol_interface`
     RevealProtocolInterface,
+    /// `ty_extensions.reveal_when_assignable_to`
+    RevealWhenAssignableTo,
+    /// `ty_extensions.reveal_when_subtype_of`
+    RevealWhenSubtypeOf,
 }
 
 impl KnownFunction {
@@ -1237,6 +1257,8 @@ impl KnownFunction {
             | Self::StaticAssert
             | Self::HasMember
             | Self::RevealProtocolInterface
+            | Self::RevealWhenAssignableTo
+            | Self::RevealWhenSubtypeOf
             | Self::AllMembers => module.is_ty_extensions(),
             Self::ImportModule => module.is_importlib(),
         }
@@ -1532,6 +1554,54 @@ impl KnownFunction {
                 overload.set_return_type(Type::module_literal(db, file, module));
             }
 
+            KnownFunction::RevealWhenAssignableTo => {
+                let [Some(ty_a), Some(ty_b)] = overload.parameter_types() else {
+                    return;
+                };
+                let constraints = ty_a.when_assignable_to::<ConstraintSet>(db, *ty_b);
+                let Some(builder) =
+                    context.report_diagnostic(DiagnosticId::RevealedType, Severity::Info)
+                else {
+                    return;
+                };
+                let mut diag = builder.into_diagnostic("Assignability holds");
+                let span = context.span(call_expression);
+                if constraints.is_always_satisfied(db) {
+                    diag.annotate(Annotation::primary(span).message("always"));
+                } else if constraints.is_never_satisfied(db) {
+                    diag.annotate(Annotation::primary(span).message("never"));
+                } else {
+                    diag.annotate(
+                        Annotation::primary(span)
+                            .message(format_args!("when {}", constraints.display(db))),
+                    );
+                }
+            }
+
+            KnownFunction::RevealWhenSubtypeOf => {
+                let [Some(ty_a), Some(ty_b)] = overload.parameter_types() else {
+                    return;
+                };
+                let constraints = ty_a.when_subtype_of::<ConstraintSet>(db, *ty_b);
+                let Some(builder) =
+                    context.report_diagnostic(DiagnosticId::RevealedType, Severity::Info)
+                else {
+                    return;
+                };
+                let mut diag = builder.into_diagnostic("Subtyping holds");
+                let span = context.span(call_expression);
+                if constraints.is_always_satisfied(db) {
+                    diag.annotate(Annotation::primary(span).message("always"));
+                } else if constraints.is_never_satisfied(db) {
+                    diag.annotate(Annotation::primary(span).message("never"));
+                } else {
+                    diag.annotate(
+                        Annotation::primary(span)
+                            .message(format_args!("when {}", constraints.display(db))),
+                    );
+                }
+            }
+
             _ => {}
         }
     }
@@ -1592,6 +1662,8 @@ pub(crate) mod tests {
                 | KnownFunction::IsEquivalentTo
                 | KnownFunction::HasMember
                 | KnownFunction::RevealProtocolInterface
+                | KnownFunction::RevealWhenAssignableTo
+                | KnownFunction::RevealWhenSubtypeOf
                 | KnownFunction::AllMembers => KnownModule::TyExtensions,
 
                 KnownFunction::ImportModule => KnownModule::ImportLib,
