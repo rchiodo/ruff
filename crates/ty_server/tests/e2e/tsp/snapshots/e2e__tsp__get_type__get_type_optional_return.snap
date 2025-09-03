@@ -1,0 +1,12 @@
+---
+source: crates/ty_server/tests/e2e/tsp/get_type.rs
+expression: normalize_for_snapshot(optional_return_result)
+---
+{
+  "aliasName": null,
+  "category": 5,
+  "categoryFlags": 0,
+  "flags": 0,
+  "handle": "test_handle_Union",
+  "name": "Union"
+}

@@ -1,4 +1,6 @@
 use std::borrow::Cow;
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 
 use anyhow::anyhow;
 use lsp_types::{Url, request::Request};
@@ -132,19 +134,13 @@ impl GetTypeRequestHandler {
     }
 }
 
-/// Convert a semantic Type to a TSP Type with user-friendly names
+/// Convert a semantic Type to a TSP Type with user-friendly names and a hash-based handle
 fn convert_semantic_type_to_tsp(_db: &ProjectDatabase, semantic_type: &SemanticType) -> Type {
     // Generate a user-friendly type name
     let name = generate_user_friendly_type_name(semantic_type);
 
-    // Generate a unique handle for this type
-    let handle = TypeHandle::String(format!(
-        "type_{}",
-        name.replace(" ", "_")
-            .replace("[", "")
-            .replace("]", "")
-            .replace("|", "_or_")
-    ));
+    // Generate a hash-based handle from the type itself
+    let handle = TypeHandle::Int(generate_type_handle(semantic_type));
 
     // Determine the category and flags based on the semantic type
     let (category, flags, category_flags) = categorize_semantic_type(semantic_type);
@@ -159,6 +155,21 @@ fn convert_semantic_type_to_tsp(_db: &ProjectDatabase, semantic_type: &SemanticT
         module_name: None, // TODO: Extract module information if available
         decl: None,        // TODO: Extract declaration information if available
     }
+}
+
+/// Generate a stable handle for a type based on its hash value.
+///
+/// This creates a handle that is stable within a TSP session/snapshot but may vary
+/// between different program runs. Since TSP handles are only expected to be valid
+/// within the context of a single snapshot, this should be sufficient.
+fn generate_type_handle(semantic_type: &SemanticType) -> i32 {
+    let mut hasher = DefaultHasher::new();
+    semantic_type.hash(&mut hasher);
+    let hash = hasher.finish();
+
+    // Convert to i32 for TSP compatibility, using wrapping to handle overflow
+    #[allow(clippy::cast_possible_wrap)]
+    (hash as i32)
 }
 
 /// Generate a user-friendly name for a semantic type

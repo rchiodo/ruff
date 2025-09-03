@@ -1,0 +1,12 @@
+---
+source: crates/ty_server/tests/e2e/tsp/get_type.rs
+expression: normalize_for_snapshot(integer_result)
+---
+{
+  "aliasName": null,
+  "category": 0,
+  "categoryFlags": 0,
+  "flags": 8,
+  "handle": "test_handle_int",
+  "name": "int"
+}

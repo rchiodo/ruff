@@ -1,0 +1,12 @@
+---
+source: crates/ty_server/tests/e2e/tsp/get_type.rs
+expression: normalize_for_snapshot(dict_method_result)
+---
+{
+  "aliasName": null,
+  "category": 3,
+  "categoryFlags": 0,
+  "flags": 1,
+  "handle": "test_handle_tuple",
+  "name": "tuple"
+}

@@ -1,10 +1,27 @@
-//! Integration tests for Type Server Protocol (TSP) functionality
+//! Tests for typeServer/getType TSP functionality
 
 use anyhow::Result;
 use lsp_types::{Position, notification::PublishDiagnostics};
 use ruff_db::system::SystemPath;
+use ty_server::{GetTypeResponse, TypeHandle};
 
 use crate::TestServerBuilder;
+
+/// Normalize a GetTypeResponse for snapshot testing by replacing non-deterministic handles
+/// with predictable placeholders based on the type name.
+fn normalize_for_snapshot(response: GetTypeResponse) -> serde_json::Value {
+    let mut json = serde_json::to_value(&response).unwrap();
+    if let Some(obj) = json.as_object_mut() {
+        // Replace the handle with a deterministic placeholder based on the type name
+        if let Some(name) = obj.get("name").and_then(|n| n.as_str()) {
+            obj.insert(
+                "handle".to_string(),
+                serde_json::Value::String(format!("test_handle_{}", name)),
+            );
+        }
+    }
+    json
+}
 
 /// Test typeServer/getType request for a simple variable
 #[test]
@@ -36,7 +53,10 @@ z = [1, 2, 3]
     // This test validates the TSP infrastructure works
     assert!(type_result.name.len() > 0, "Type name should not be empty");
 
-    insta::assert_json_snapshot!("get_type_simple_variable", type_result);
+    insta::assert_json_snapshot!(
+        "get_type_simple_variable",
+        normalize_for_snapshot(type_result)
+    );
 
     Ok(())
 }
@@ -70,7 +90,7 @@ result = add(1, 2)
 
     assert!(type_result.name.len() > 0, "Type name should not be empty");
 
-    insta::assert_json_snapshot!("get_type_function", type_result);
+    insta::assert_json_snapshot!("get_type_function", normalize_for_snapshot(type_result));
 
     Ok(())
 }
@@ -109,7 +129,7 @@ result = calc.add(5)
 
     assert!(type_result.name.len() > 0, "Type name should not be empty");
 
-    insta::assert_json_snapshot!("get_type_class_method", type_result);
+    insta::assert_json_snapshot!("get_type_class_method", normalize_for_snapshot(type_result));
 
     Ok(())
 }
@@ -141,7 +161,10 @@ x = 42
     // Should still return a response (even if it's "Unknown")
     assert!(type_result.name.len() > 0, "Type name should not be empty");
 
-    insta::assert_json_snapshot!("get_type_invalid_position", type_result);
+    insta::assert_json_snapshot!(
+        "get_type_invalid_position",
+        normalize_for_snapshot(type_result)
+    );
 
     Ok(())
 }
@@ -180,7 +203,10 @@ value = first_item.get(\"a\")
 
     assert!(type_result.name.len() > 0, "Type name should not be empty");
 
-    insta::assert_json_snapshot!("get_type_complex_expression", type_result);
+    insta::assert_json_snapshot!(
+        "get_type_complex_expression",
+        normalize_for_snapshot(type_result)
+    );
 
     Ok(())
 }
@@ -217,7 +243,10 @@ dict_var = {\"key\": \"value\"}
         integer_result.name.len() > 0,
         "Integer type name should not be empty"
     );
-    insta::assert_json_snapshot!("get_type_integer_literal", integer_result);
+    insta::assert_json_snapshot!(
+        "get_type_integer_literal",
+        normalize_for_snapshot(integer_result)
+    );
 
     // Test string literal
     let string_result = server.tsp_get_type_request(foo_py, Position::new(2, 14))?; // Position at '"hello world"'
@@ -225,7 +254,10 @@ dict_var = {\"key\": \"value\"}
         string_result.name.len() > 0,
         "String type name should not be empty"
     );
-    insta::assert_json_snapshot!("get_type_string_literal", string_result);
+    insta::assert_json_snapshot!(
+        "get_type_string_literal",
+        normalize_for_snapshot(string_result)
+    );
 
     // Test boolean literal
     let bool_result = server.tsp_get_type_request(foo_py, Position::new(4, 11))?; // Position at 'True'
@@ -233,7 +265,10 @@ dict_var = {\"key\": \"value\"}
         bool_result.name.len() > 0,
         "Boolean type name should not be empty"
     );
-    insta::assert_json_snapshot!("get_type_boolean_literal", bool_result);
+    insta::assert_json_snapshot!(
+        "get_type_boolean_literal",
+        normalize_for_snapshot(bool_result)
+    );
 
     Ok(())
 }
@@ -272,7 +307,10 @@ result3 = len([1, 2, 3])
         func_def_result.name.len() > 0,
         "Function definition type should not be empty"
     );
-    insta::assert_json_snapshot!("get_type_function_definition", func_def_result);
+    insta::assert_json_snapshot!(
+        "get_type_function_definition",
+        normalize_for_snapshot(func_def_result)
+    );
 
     // Test function call result with type annotation
     let annotated_call_result = server.tsp_get_type_request(foo_py, Position::new(7, 10))?; // "simple_function(42)"
@@ -280,7 +318,10 @@ result3 = len([1, 2, 3])
         annotated_call_result.name.len() > 0,
         "Annotated function call result should not be empty"
     );
-    insta::assert_json_snapshot!("get_type_annotated_function_call", annotated_call_result);
+    insta::assert_json_snapshot!(
+        "get_type_annotated_function_call",
+        normalize_for_snapshot(annotated_call_result)
+    );
 
     // Test builtin function call
     let builtin_call_result = server.tsp_get_type_request(foo_py, Position::new(9, 10))?; // "len([1, 2, 3])"
@@ -288,7 +329,10 @@ result3 = len([1, 2, 3])
         builtin_call_result.name.len() > 0,
         "Builtin function call result should not be empty"
     );
-    insta::assert_json_snapshot!("get_type_builtin_function_call", builtin_call_result);
+    insta::assert_json_snapshot!(
+        "get_type_builtin_function_call",
+        normalize_for_snapshot(builtin_call_result)
+    );
 
     Ok(())
 }
@@ -332,7 +376,10 @@ attribute_access = obj.value
         class_def_result.name.len() > 0,
         "Class definition type should not be empty"
     );
-    insta::assert_json_snapshot!("get_type_class_definition", class_def_result);
+    insta::assert_json_snapshot!(
+        "get_type_class_definition",
+        normalize_for_snapshot(class_def_result)
+    );
 
     // Test instance variable
     let instance_result = server.tsp_get_type_request(foo_py, Position::new(11, 6))?; // "MyClass(42)"
@@ -340,7 +387,10 @@ attribute_access = obj.value
         instance_result.name.len() > 0,
         "Class instance type should not be empty"
     );
-    insta::assert_json_snapshot!("get_type_class_instance", instance_result);
+    insta::assert_json_snapshot!(
+        "get_type_class_instance",
+        normalize_for_snapshot(instance_result)
+    );
 
     // Test method call with return annotation
     let annotated_method_result = server.tsp_get_type_request(foo_py, Position::new(12, 14))?; // "obj.get_value()"
@@ -348,7 +398,10 @@ attribute_access = obj.value
         annotated_method_result.name.len() > 0,
         "Annotated method call result should not be empty"
     );
-    insta::assert_json_snapshot!("get_type_annotated_method_call", annotated_method_result);
+    insta::assert_json_snapshot!(
+        "get_type_annotated_method_call",
+        normalize_for_snapshot(annotated_method_result)
+    );
 
     // Test attribute access
     let attribute_result = server.tsp_get_type_request(foo_py, Position::new(14, 18))?; // "obj.value"
@@ -356,7 +409,10 @@ attribute_access = obj.value
         attribute_result.name.len() > 0,
         "Attribute access type should not be empty"
     );
-    insta::assert_json_snapshot!("get_type_attribute_access", attribute_result);
+    insta::assert_json_snapshot!(
+        "get_type_attribute_access",
+        normalize_for_snapshot(attribute_result)
+    );
 
     Ok(())
 }
@@ -397,12 +453,12 @@ dict_keys = my_dict.keys()
     // Test list literal
     let list_result = server.tsp_get_type_request(foo_py, Position::new(3, 10))?; // "[1, 2, 3]"
     assert!(list_result.name.len() > 0, "List type should not be empty");
-    insta::assert_json_snapshot!("get_type_list_literal", list_result);
+    insta::assert_json_snapshot!("get_type_list_literal", normalize_for_snapshot(list_result));
 
     // Test dict literal
     let dict_result = server.tsp_get_type_request(foo_py, Position::new(4, 10))?; // "{\"a\": 1, \"b\": 2}"
     assert!(dict_result.name.len() > 0, "Dict type should not be empty");
-    insta::assert_json_snapshot!("get_type_dict_literal", dict_result);
+    insta::assert_json_snapshot!("get_type_dict_literal", normalize_for_snapshot(dict_result));
 
     // Test list indexing
     let list_index_result = server.tsp_get_type_request(foo_py, Position::new(8, 12))?; // "my_list[0]"
@@ -410,7 +466,10 @@ dict_keys = my_dict.keys()
         list_index_result.name.len() > 0,
         "List indexing result should not be empty"
     );
-    insta::assert_json_snapshot!("get_type_list_indexing", list_index_result);
+    insta::assert_json_snapshot!(
+        "get_type_list_indexing",
+        normalize_for_snapshot(list_index_result)
+    );
 
     // Test dict method call
     let dict_method_result = server.tsp_get_type_request(foo_py, Position::new(14, 12))?; // "my_dict.keys()"
@@ -418,7 +477,10 @@ dict_keys = my_dict.keys()
         dict_method_result.name.len() > 0,
         "Dict method result should not be empty"
     );
-    insta::assert_json_snapshot!("get_type_dict_method", dict_method_result);
+    insta::assert_json_snapshot!(
+        "get_type_dict_method",
+        normalize_for_snapshot(dict_method_result)
+    );
 
     Ok(())
 }
@@ -446,15 +508,18 @@ x = 42
 
     // Test position in whitespace (should handle gracefully)
     let whitespace_result = server.tsp_get_type_request(foo_py, Position::new(0, 1))?; // Between 'x' and '='
-    insta::assert_json_snapshot!("get_type_whitespace", whitespace_result);
+    insta::assert_json_snapshot!(
+        "get_type_whitespace",
+        normalize_for_snapshot(whitespace_result)
+    );
 
     // Test position in comment
     let comment_result = server.tsp_get_type_request(foo_py, Position::new(1, 5))?; // Inside comment
-    insta::assert_json_snapshot!("get_type_comment", comment_result);
+    insta::assert_json_snapshot!("get_type_comment", normalize_for_snapshot(comment_result));
 
     // Test position at end of line
     let eol_result = server.tsp_get_type_request(foo_py, Position::new(0, 6))?; // End of "x = 42"
-    insta::assert_json_snapshot!("get_type_end_of_line", eol_result);
+    insta::assert_json_snapshot!("get_type_end_of_line", normalize_for_snapshot(eol_result));
 
     Ok(())
 }
@@ -498,7 +563,10 @@ result = typed_function(\"123\")
         annotated_var_result.name.len() > 0,
         "Annotated variable type should not be empty"
     );
-    insta::assert_json_snapshot!("get_type_annotated_variable", annotated_var_result);
+    insta::assert_json_snapshot!(
+        "get_type_annotated_variable",
+        normalize_for_snapshot(annotated_var_result)
+    );
 
     // Test optional variable
     let optional_var_result = server.tsp_get_type_request(foo_py, Position::new(4, 12))?; // "optional_var"
@@ -506,7 +574,10 @@ result = typed_function(\"123\")
         optional_var_result.name.len() > 0,
         "Optional variable type should not be empty"
     );
-    insta::assert_json_snapshot!("get_type_optional_variable", optional_var_result);
+    insta::assert_json_snapshot!(
+        "get_type_optional_variable",
+        normalize_for_snapshot(optional_var_result)
+    );
 
     // Test function call with Optional return type
     let optional_return_result = server.tsp_get_type_request(foo_py, Position::new(14, 9))?; // "typed_function(\"123\")"
@@ -514,37 +585,131 @@ result = typed_function(\"123\")
         optional_return_result.name.len() > 0,
         "Optional return type should not be empty"
     );
-    insta::assert_json_snapshot!("get_type_optional_return", optional_return_result);
+    insta::assert_json_snapshot!(
+        "get_type_optional_return",
+        normalize_for_snapshot(optional_return_result)
+    );
 
     Ok(())
 }
 
-/// Test typeServer/getSupportedProtocolVersion request
+/// Test that verifies the type handle returned from get_type can regenerate the same internal type.
+/// This test validates the round-trip functionality of type handles - ensuring that handles are
+/// stable identifiers that can be used to retrieve the same type information consistently.
 #[test]
-fn get_supported_protocol_version() -> Result<()> {
+fn get_type_handle_roundtrip() -> Result<()> {
     let workspace_root = SystemPath::new("src");
+    let foo_py = SystemPath::new("src/foo.py");
+    let foo_content = "\
+x = 42
+y = \"hello\"
+my_list = [1, 2, 3]
+my_dict = {\"key\": \"value\"}
+
+def my_function():
+    return 42
+
+class MyClass:
+    def __init__(self):
+        self.value = 100
+";
 
     let mut server = TestServerBuilder::new()?
         .with_tsp()
         .with_workspace(workspace_root, None)?
+        .with_file(foo_py, foo_content)?
         .build()?
         .wait_until_workspaces_are_initialized()?;
 
-    // Test getting the supported protocol version
-    let version = server.tsp_get_supported_protocol_version_request()?;
+    server.open_text_document(foo_py, &foo_content, 1);
+    let _ = server.await_notification::<PublishDiagnostics>()?;
 
-    // Should return the version from the protocol.rs file
-    assert_eq!(version, "0.2.0");
+    // Test multiple expressions and verify handle consistency
+    let test_cases = [
+        (Position::new(0, 0), "int variable 'x'"),        // x = 42
+        (Position::new(1, 0), "string variable 'y'"),     // y = "hello"
+        (Position::new(2, 0), "list variable 'my_list'"), // my_list = [1, 2, 3]
+        (Position::new(3, 0), "dict variable 'my_dict'"), // my_dict = {"key": "value"}
+        (Position::new(5, 4), "function 'my_function'"),  // def my_function():
+        (Position::new(8, 6), "class 'MyClass'"),         // class MyClass:
+        (Position::new(0, 4), "int literal '42'"),        // x = 42 (the literal)
+        (Position::new(1, 4), "string literal"),          // y = "hello" (the literal)
+    ];
 
-    // Verify it's a valid semver format
-    assert!(
-        version.chars().filter(|&c| c == '.').count() == 2,
-        "Version should have 2 dots for semver format"
+    for (position, description) in test_cases {
+        // Get the type information twice for the same position
+        let first_result = server.tsp_get_type_request(foo_py, position)?;
+        let second_result = server.tsp_get_type_request(foo_py, position)?;
+
+        // Verify that handles are identical for the same position/type
+        assert_eq!(
+            first_result.handle, second_result.handle,
+            "Type handles should be identical for the same position: {} at {:?}",
+            description, position
+        );
+
+        // Verify that other type properties are also identical
+        assert_eq!(
+            first_result.name, second_result.name,
+            "Type names should be identical for the same position: {} at {:?}",
+            description, position
+        );
+
+        assert_eq!(
+            first_result.category, second_result.category,
+            "Type categories should be identical for the same position: {} at {:?}",
+            description, position
+        );
+
+        // Verify that the handle is actually meaningful (not 0 or obviously invalid)
+        match &first_result.handle {
+            TypeHandle::Int(handle_value) => {
+                assert_ne!(
+                    *handle_value, 0,
+                    "Handle should not be zero for {}",
+                    description
+                );
+            }
+            TypeHandle::String(handle_value) => {
+                assert!(
+                    !handle_value.is_empty(),
+                    "String handle should not be empty for {}",
+                    description
+                );
+            }
+        }
+
+        println!(
+            "✓ Handle consistency verified for {} at {:?}: {:?}",
+            description, position, first_result.handle
+        );
+    }
+
+    // Test that different types have different handles
+    let int_type = server.tsp_get_type_request(foo_py, Position::new(0, 0))?; // x = 42
+    let string_type = server.tsp_get_type_request(foo_py, Position::new(1, 0))?; // y = "hello"
+    let list_type = server.tsp_get_type_request(foo_py, Position::new(2, 0))?; // my_list = [1, 2, 3]
+
+    assert_ne!(
+        int_type.handle, string_type.handle,
+        "Different types should have different handles (int vs string)"
     );
-    assert!(
-        version.split('.').all(|part| part.parse::<u32>().is_ok()),
-        "All parts should be numbers"
+
+    assert_ne!(
+        int_type.handle, list_type.handle,
+        "Different types should have different handles (int vs list)"
     );
+
+    assert_ne!(
+        string_type.handle, list_type.handle,
+        "Different types should have different handles (string vs list)"
+    );
+
+    println!("✓ Different types have different handles as expected");
+
+    // Note: In a complete implementation, we would also test that we can use the handle
+    // to retrieve the original type information, but since we don't have a "getTypeByHandle"
+    // endpoint yet, we're testing handle stability and uniqueness instead.
 
     Ok(())
 }

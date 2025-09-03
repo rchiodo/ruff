@@ -6,7 +6,7 @@ use ruff_db::system::{OsSystem, SystemPathBuf};
 
 pub use crate::logging::{LogLevel, init_logging};
 pub use crate::server::tsp::protocol::{
-    GetTypeParams, GetTypeResponse, Node, Position as TspPosition, Range as TspRange,
+    GetTypeParams, GetTypeResponse, Node, Position as TspPosition, Range as TspRange, TypeHandle,
 };
 pub use crate::server::{
     PartialWorkspaceProgress, PartialWorkspaceProgressParams, Server, TspServer,
