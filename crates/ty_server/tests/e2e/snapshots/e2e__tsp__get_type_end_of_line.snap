@@ -1,12 +1,12 @@
 ---
 source: crates/ty_server/tests/e2e/tsp.rs
-expression: type_result
+expression: eol_result
 ---
 {
   "aliasName": null,
-  "category": 3,
+  "category": 0,
   "categoryFlags": 0,
-  "flags": 1,
-  "handle": "type_list",
-  "name": "list"
+  "flags": 8,
+  "handle": "type_int",
+  "name": "int"
 }

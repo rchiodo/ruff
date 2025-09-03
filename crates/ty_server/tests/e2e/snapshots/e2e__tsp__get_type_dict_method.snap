@@ -1,12 +1,12 @@
 ---
 source: crates/ty_server/tests/e2e/tsp.rs
-expression: type_result
+expression: dict_method_result
 ---
 {
   "aliasName": null,
   "category": 3,
   "categoryFlags": 0,
   "flags": 1,
-  "handle": "type_list",
-  "name": "list"
+  "handle": "type_tuple",
+  "name": "tuple"
 }

@@ -1,6 +1,6 @@
 ---
 source: crates/ty_server/tests/e2e/tsp.rs
-expression: type_result
+expression: whitespace_result
 ---
 {
   "aliasName": null,

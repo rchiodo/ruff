@@ -4,9 +4,9 @@ expression: type_result
 ---
 {
   "aliasName": null,
-  "category": 0,
+  "category": 3,
   "categoryFlags": 0,
-  "flags": 0,
-  "handle": "unknown",
-  "name": "Unknown"
+  "flags": 1,
+  "handle": "type_tuple",
+  "name": "tuple"
 }
