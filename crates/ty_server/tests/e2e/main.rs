@@ -826,6 +826,92 @@ impl TestServer {
         }
     }
 
+    /// Send a `typeServer/getTypeArgs` TSP request.
+    pub(crate) fn tsp_get_type_args_request(
+        &mut self,
+        tsp_type: serde_json::Value,
+        snapshot: i32,
+    ) -> Result<Vec<serde_json::Value>> {
+        use serde_json::json;
+
+        let params = json!({
+            "type": tsp_type,
+            "snapshot": snapshot
+        });
+
+        // Create a custom request since TSP requests don't use the standard LSP Request trait
+        let request = lsp_server::Request {
+            id: self.next_request_id(),
+            method: "typeServer/getTypeArgs".to_string(),
+            params,
+        };
+
+        let id = request.id.clone();
+        self.send(lsp_server::Message::Request(request));
+
+        // Wait for the response and extract the result
+        let response = self.await_response_raw(&id)?;
+        match response.result {
+            Some(result) => Ok(serde_json::from_value(result)?),
+            None => {
+                if let Some(error) = response.error {
+                    anyhow::bail!("TSP getTypeArgs request failed: {:?}", error);
+                } else {
+                    anyhow::bail!("TSP getTypeArgs request returned no result");
+                }
+            }
+        }
+    }
+
+    /// Send a `typeServer/getTypeArgs` TSP request with a node range.
+    pub(crate) fn tsp_get_type_args_request_with_node(
+        &mut self,
+        path: &SystemPath,
+        start_position: Position,
+        end_position: Position,
+    ) -> Result<Vec<serde_json::Value>> {
+        use serde_json::json;
+
+        let params = json!({
+            "node": {
+                "uri": path.as_std_path().to_string_lossy(),
+                "range": {
+                    "start": {
+                        "line": start_position.line,
+                        "character": start_position.character
+                    },
+                    "end": {
+                        "line": end_position.line,
+                        "character": end_position.character
+                    }
+                }
+            }
+        });
+
+        // Create a custom request since TSP requests don't use the standard LSP Request trait
+        let request = lsp_server::Request {
+            id: self.next_request_id(),
+            method: "typeServer/getTypeArgs".to_string(),
+            params,
+        };
+
+        let id = request.id.clone();
+        self.send(lsp_server::Message::Request(request));
+
+        // Wait for the response and extract the result
+        let response = self.await_response_raw(&id)?;
+        match response.result {
+            Some(result) => Ok(serde_json::from_value(result)?),
+            None => {
+                if let Some(error) = response.error {
+                    anyhow::bail!("TSP getTypeArgs request failed: {:?}", error);
+                } else {
+                    anyhow::bail!("TSP getTypeArgs request returned no result");
+                }
+            }
+        }
+    }
+
     /// Sends a `textDocument/inlayHint` request for the document at the given path and range.
     pub(crate) fn inlay_hints_request(
         &mut self,

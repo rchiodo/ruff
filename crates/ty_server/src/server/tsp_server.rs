@@ -30,6 +30,7 @@
 //!
 //! TSP requests are handled by dedicated handlers in the `tsp_api` module:
 //! - `typeServer/getType` → `GetTypeRequestHandler`
+//! - `typeServer/getTypeArgs` → `GetTypeArgsRequestHandler`
 //! - `typeServer/getSupportedProtocolVersion` → Returns protocol version
 //! - Future TSP methods can be easily added
 //!
@@ -365,6 +366,51 @@ mod tsp_api {
                             &request_id,
                             Err(crate::server::api::Error::new(
                                 anyhow::anyhow!("Failed to resolve document"),
+                                lsp_server::ErrorCode::InternalError,
+                            )),
+                        );
+                    }
+                })
+            }
+
+            TSPRequests::GetTypeArgsRequest { id, params } => {
+                // Convert serde_json::Value to lsp_server::RequestId
+                let request_id = handle_request_id!(id, request_id);
+
+                Task::sync(move |session, client| {
+                    // For getTypeArgs, we need access to any project database
+                    // Since we're working with type handles, we don't need a specific document
+                    if let Some(db) = session.project_dbs().next() {
+                        // Create any document snapshot for the API (this is a limitation of current API)
+                        // In a proper implementation, we wouldn't need a document snapshot for type handles
+                        let workspace_uris = session.workspaces().urls().collect::<Vec<_>>();
+
+                        if let Some(workspace_url) = workspace_uris.first() {
+                            let doc_snapshot =
+                                session.take_document_snapshot((*workspace_url).clone());
+
+                            tsp::requests::get_type_args::GetTypeArgsRequestHandler::handle_request(
+                                &request_id,
+                                db,
+                                &doc_snapshot,
+                                client,
+                                &params,
+                            );
+                        } else {
+                            // No workspaces available - respond with error
+                            client.respond::<Vec<crate::server::tsp::Type>>(
+                                &request_id,
+                                Err(crate::server::api::Error::new(
+                                    anyhow::anyhow!("No workspaces available for getTypeArgs"),
+                                    lsp_server::ErrorCode::InternalError,
+                                )),
+                            );
+                        }
+                    } else {
+                        client.respond::<Vec<crate::server::tsp::Type>>(
+                            &request_id,
+                            Err(crate::server::api::Error::new(
+                                anyhow::anyhow!("No project database available"),
                                 lsp_server::ErrorCode::InternalError,
                             )),
                         );

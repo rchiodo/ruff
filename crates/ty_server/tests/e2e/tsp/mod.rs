@@ -2,3 +2,4 @@
 
 pub mod get_supported_protocol_version;
 pub mod get_type;
+pub mod get_type_args;
