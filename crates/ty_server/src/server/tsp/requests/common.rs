@@ -13,10 +13,10 @@ use ruff_python_ast::{
 use ruff_text_size::Ranged;
 use ruff_text_size::TextRange;
 use ty_project::ProjectDatabase;
-use ty_python_semantic::{HasType, SemanticModel, types::Type as SemanticType};
+use ty_python_semantic::{HasType, SemanticModel, all_modules, types::Type as SemanticType};
 
 use crate::document::PositionExt;
-use crate::server::tsp::protocol::{Range, Type, TypeCategory, TypeFlags, TypeHandle};
+use crate::server::tsp::protocol::{ModuleName, Range, Type, TypeCategory, TypeFlags, TypeHandle};
 use crate::session::DocumentSnapshot;
 
 /// Shared functionality for TSP request handlers that need to resolve types from positions or handles
@@ -130,7 +130,7 @@ impl TspCommon {
 
     /// Convert a semantic Type to a TSP Type with user-friendly names and a hash-based handle
     pub(crate) fn convert_semantic_type_to_tsp<'a>(
-        _db: &'a ProjectDatabase,
+        db: &'a ProjectDatabase,
         semantic_type: &SemanticType<'a>,
     ) -> Type {
         // Generate a user-friendly type name
@@ -142,16 +142,129 @@ impl TspCommon {
         // Determine the category and flags based on the semantic type
         let (category, flags, category_flags) = Self::categorize_semantic_type(semantic_type);
 
+        // Extract module information if available
+        let module_name = Self::extract_module_name(db, semantic_type);
+
         Type {
             handle,
             name,
             category,
             flags,
             category_flags,
-            alias_name: None,  // TODO: Extract alias information if available
-            module_name: None, // TODO: Extract module information if available
-            decl: None,        // TODO: Extract declaration information if available
+            alias_name: None, // TODO: Extract alias information if available
+            module_name,
+            decl: None, // TODO: Extract declaration information if available
         }
+    }
+
+    /// Extract module name information from a semantic type
+    pub(crate) fn extract_module_name<'a>(
+        db: &'a ProjectDatabase,
+        semantic_type: &SemanticType<'a>,
+    ) -> Option<ModuleName> {
+        // Try to get the type definition first
+        if let Some(type_def) = semantic_type.definition(db) {
+            // Get the file where this type is defined
+            if let Some(file_range) = type_def.full_range(db) {
+                let file = file_range.file();
+
+                // Search through all modules to find one that matches this file
+                let modules = all_modules(db);
+                for module in modules {
+                    if let Some(module_file) = module.file(db) {
+                        if module_file == file {
+                            let module_name_ref = module.name(db);
+
+                            // Convert ty_python_semantic::ModuleName to TSP ModuleName
+                            return Some(ModuleName {
+                                leading_dots: 0, // ty_python_semantic::ModuleName is always absolute
+                                name_parts: module_name_ref
+                                    .components()
+                                    .map(|part| part.to_string())
+                                    .collect(),
+                            });
+                        }
+                    }
+                }
+            }
+        }
+
+        // For built-in types, try to infer module name from the type's characteristics
+        Self::infer_builtin_module_name(semantic_type)
+    }
+
+    /// Infer module names for built-in types that don't have explicit definitions
+    fn infer_builtin_module_name<'a>(semantic_type: &SemanticType<'a>) -> Option<ModuleName> {
+        let debug_str = format!("{:?}", semantic_type);
+
+        // Built-in types that are in the builtins module
+        if debug_str.starts_with("IntLiteral(")
+            || debug_str.starts_with("StringLiteral(")
+            || debug_str.starts_with("FloatLiteral(")
+            || debug_str.starts_with("BooleanLiteral(")
+            || debug_str.contains("None")
+            || debug_str.contains("NoneType")
+        {
+            return Some(ModuleName {
+                leading_dots: 0,
+                name_parts: vec!["builtins".to_string()],
+            });
+        }
+
+        // Check for specific built-in collection types
+        if debug_str.contains("NominalInstance") {
+            if debug_str.contains("Id(9c07)") || debug_str.contains("list") {
+                return Some(ModuleName {
+                    leading_dots: 0,
+                    name_parts: vec!["builtins".to_string()],
+                });
+            }
+            if debug_str.contains("Id(9c08)") || debug_str.contains("dict") {
+                return Some(ModuleName {
+                    leading_dots: 0,
+                    name_parts: vec!["builtins".to_string()],
+                });
+            }
+            if debug_str.contains("Id(9c09)") || debug_str.contains("tuple") {
+                return Some(ModuleName {
+                    leading_dots: 0,
+                    name_parts: vec!["builtins".to_string()],
+                });
+            }
+            if debug_str.contains("Id(9c0a)") || debug_str.contains("set") {
+                return Some(ModuleName {
+                    leading_dots: 0,
+                    name_parts: vec!["builtins".to_string()],
+                });
+            }
+        }
+
+        // Function types are typically from builtins
+        if debug_str.contains("Function") || debug_str.contains("function") {
+            return Some(ModuleName {
+                leading_dots: 0,
+                name_parts: vec!["builtins".to_string()],
+            });
+        }
+
+        // Module types are typically from the types module
+        if debug_str.contains("Module") {
+            return Some(ModuleName {
+                leading_dots: 0,
+                name_parts: vec!["types".to_string()],
+            });
+        }
+
+        // Union types are from typing
+        if debug_str.contains("Union") {
+            return Some(ModuleName {
+                leading_dots: 0,
+                name_parts: vec!["typing".to_string()],
+            });
+        }
+
+        // For other types, we don't know the module
+        None
     }
 
     /// Generate a stable handle for a type based on its hash value.

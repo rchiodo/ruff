@@ -8,5 +8,11 @@ expression: normalize_for_snapshot(optional_return_result)
   "categoryFlags": 0,
   "flags": 0,
   "handle": "test_handle_Union",
+  "moduleName": {
+    "leadingDots": 0,
+    "nameParts": [
+      "typing"
+    ]
+  },
   "name": "Union"
 }

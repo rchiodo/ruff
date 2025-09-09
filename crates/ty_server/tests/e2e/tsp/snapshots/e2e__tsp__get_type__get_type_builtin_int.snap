@@ -1,6 +1,6 @@
 ---
 source: crates/ty_server/tests/e2e/tsp/get_type.rs
-expression: normalize_for_snapshot(eol_result)
+expression: normalize_for_snapshot(builtin_type)
 ---
 {
   "aliasName": null,

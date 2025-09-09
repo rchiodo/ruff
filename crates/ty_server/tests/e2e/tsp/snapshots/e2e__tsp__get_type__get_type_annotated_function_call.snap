@@ -8,5 +8,11 @@ expression: normalize_for_snapshot(annotated_call_result)
   "categoryFlags": 0,
   "flags": 1,
   "handle": "test_handle_tuple",
+  "moduleName": {
+    "leadingDots": 0,
+    "nameParts": [
+      "builtins"
+    ]
+  },
   "name": "tuple"
 }

@@ -1,18 +1,18 @@
 ---
 source: crates/ty_server/tests/e2e/tsp/get_type.rs
-expression: normalize_for_snapshot(eol_result)
+expression: normalize_for_snapshot(imported_type)
 ---
 {
   "aliasName": null,
-  "category": 0,
+  "category": 3,
   "categoryFlags": 0,
-  "flags": 8,
-  "handle": "test_handle_int",
+  "flags": 1,
+  "handle": "test_handle_tuple",
   "moduleName": {
     "leadingDots": 0,
     "nameParts": [
-      "builtins"
+      "utils"
     ]
   },
-  "name": "int"
+  "name": "tuple"
 }

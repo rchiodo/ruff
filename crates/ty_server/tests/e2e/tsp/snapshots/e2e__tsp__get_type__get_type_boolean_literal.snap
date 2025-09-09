@@ -8,5 +8,11 @@ expression: normalize_for_snapshot(bool_result)
   "categoryFlags": 0,
   "flags": 8,
   "handle": "test_handle_bool",
+  "moduleName": {
+    "leadingDots": 0,
+    "nameParts": [
+      "builtins"
+    ]
+  },
   "name": "bool"
 }

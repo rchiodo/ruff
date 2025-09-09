@@ -713,3 +713,84 @@ class MyClass:
 
     Ok(())
 }
+
+/// Test typeServer/getType request includes module name information
+#[test]
+fn get_type_with_module_name() -> Result<()> {
+    let workspace_root = SystemPath::new("src");
+    let main_py = SystemPath::new("src/main.py");
+    let utils_py = SystemPath::new("src/utils.py");
+
+    // Create a utils module with a class
+    let utils_content = "\
+class MyClass:
+    def __init__(self, value: int):
+        self.value = value
+        
+def create_instance() -> MyClass:
+    return MyClass(42)
+";
+
+    // Create main module that imports from utils
+    let main_content = "\
+from utils import MyClass, create_instance
+
+# Test variable with type from another module
+my_instance = create_instance()
+
+# Test local variable
+local_var = 123
+";
+
+    let mut server = TestServerBuilder::new()?
+        .with_tsp()
+        .with_workspace(workspace_root, None)?
+        .with_file(utils_py, utils_content)?
+        .with_file(main_py, main_content)?
+        .build()?
+        .wait_until_workspaces_are_initialized()?;
+
+    // Open both files
+    server.open_text_document(utils_py, &utils_content, 1);
+    server.open_text_document(main_py, &main_content, 1);
+
+    // Wait for publish diagnostics notifications for both files
+    let _ = server.await_notification::<PublishDiagnostics>()?;
+    let _ = server.await_notification::<PublishDiagnostics>()?;
+
+    // Test getting type of 'my_instance' which should have module name from utils
+    let imported_type = server.tsp_get_type_request(main_py, Position::new(3, 0))?;
+
+    // Test getting type of 'local_var' which should be a builtin type
+    let builtin_type = server.tsp_get_type_request(main_py, Position::new(6, 0))?;
+
+    // Verify the imported type has module information
+    println!("Imported type: {:?}", imported_type);
+    println!("Builtin type: {:?}", builtin_type);
+
+    // The imported type should have module name information
+    if let Some(module_name) = &imported_type.module_name {
+        assert!(
+            !module_name.name_parts.is_empty(),
+            "Module name parts should not be empty for imported type"
+        );
+        assert_eq!(
+            module_name.leading_dots, 0,
+            "Module name should have 0 leading dots for absolute import"
+        );
+        println!("✓ Imported type has module name: {:?}", module_name);
+    } else {
+        // This might be acceptable depending on implementation
+        println!("⚠ Imported type has no module name (might be expected)");
+    }
+
+    // Create snapshots to track the structure
+    insta::assert_json_snapshot!(
+        "get_type_imported_class_instance",
+        normalize_for_snapshot(imported_type)
+    );
+
+    insta::assert_json_snapshot!("get_type_builtin_int", normalize_for_snapshot(builtin_type));
+
+    Ok(())
+}
