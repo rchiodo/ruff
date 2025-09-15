@@ -32,7 +32,7 @@ pub use tsp_server::TspServer;
 pub struct Server {
     pub(crate) connection: Connection,
     pub(crate) worker_threads: NonZeroUsize,
-    pub(crate) main_loop_receiver: MainLoopReceiver,
+    main_loop_receiver: MainLoopReceiver,
     pub(crate) main_loop_sender: MainLoopSender,
     pub(crate) session: Session,
 }
