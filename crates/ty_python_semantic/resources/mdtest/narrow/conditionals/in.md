@@ -115,7 +115,7 @@ from typing import Literal
 def test(x: Literal["a", "b", "c"] | None | int = None):
     if x not in ("a", "c"):
         # int is included because custom __eq__ methods could make
-        # an int equal to "a" or "b", so we can't eliminate it
+        # an int equal to "a" or "c", so we can't eliminate it
         reveal_type(x)  # revealed: Literal["b"] | None | int
     else:
         reveal_type(x)  # revealed: Literal["a", "c"] | int
@@ -168,11 +168,9 @@ class Color(Enum):
 
 def _(x: Color):
     if x in (Color.RED, Color.GREEN):
-        # TODO should be `Literal[Color.RED, Color.GREEN]`
-        reveal_type(x)  # revealed: Color
+        reveal_type(x)  # revealed: Literal[Color.RED, Color.GREEN]
     else:
-        # TODO should be `Literal[Color.BLUE]`
-        reveal_type(x)  # revealed: Color
+        reveal_type(x)  # revealed: Literal[Color.BLUE]
 ```
 
 ## Union with enum and `int`
@@ -187,11 +185,9 @@ class Status(Enum):
 
 def test(x: Status | int):
     if x in (Status.PENDING, Status.APPROVED):
-        # TODO should be `Literal[Status.PENDING, Status.APPROVED] | int`
         # int is included because custom __eq__ methods could make
         # an int equal to Status.PENDING or Status.APPROVED, so we can't eliminate it
-        reveal_type(x)  # revealed: Status | int
+        reveal_type(x)  # revealed: Literal[Status.PENDING, Status.APPROVED] | int
     else:
-        # TODO should be `Literal[Status.REJECTED] | int`
-        reveal_type(x)  # revealed: Status | int
+        reveal_type(x)  # revealed: Literal[Status.REJECTED] | int
 ```
