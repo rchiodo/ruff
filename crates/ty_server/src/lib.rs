@@ -5,9 +5,6 @@ use lsp_server::Connection;
 use ruff_db::system::{OsSystem, SystemPathBuf};
 
 pub use crate::logging::{LogLevel, init_logging};
-pub use crate::server::tsp::protocol::{
-    GetTypeParams, GetTypeResponse, Node, Position as TspPosition, Range as TspRange, TypeHandle,
-};
 pub use crate::server::{
     PartialWorkspaceProgress, PartialWorkspaceProgressParams, Server, TspServer,
 };
@@ -18,7 +15,7 @@ pub(crate) use session::{DocumentQuery, Session};
 mod capabilities;
 mod document;
 mod logging;
-mod server;
+pub mod server;
 mod session;
 mod system;
 

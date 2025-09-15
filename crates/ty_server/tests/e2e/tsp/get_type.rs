@@ -3,7 +3,7 @@
 use anyhow::Result;
 use lsp_types::{Position, notification::PublishDiagnostics};
 use ruff_db::system::SystemPath;
-use ty_server::{GetTypeResponse, TypeHandle};
+use ty_server::server::tsp::protocol::{GetTypeResponse, TypeHandle};
 
 use crate::TestServerBuilder;
 

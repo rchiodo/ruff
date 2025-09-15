@@ -69,7 +69,9 @@ use lsp_types::{
 use ruff_db::system::{OsSystem, SystemPath, SystemPathBuf, TestSystem};
 use rustc_hash::FxHashMap;
 use tempfile::TempDir;
-use ty_server::{GetTypeParams, GetTypeResponse, Node, TspPosition, TspRange};
+use ty_server::server::tsp::protocol::{
+    GetTypeParams, GetTypeResponse, Node, Position as TspPosition, Range as TspRange,
+};
 
 use ty_server::{ClientOptions, LogLevel, Server, TspServer, init_logging};
 
