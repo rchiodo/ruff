@@ -4345,6 +4345,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "tsp"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "tsp_server",
+]
+
+[[package]]
+name = "tsp_server"
+version = "0.0.0"
+dependencies = [
+ "anyhow",
+ "crossbeam",
+ "lsp-server",
+ "lsp-types",
+ "ruff_db",
+ "serde_json",
+ "tempfile",
+ "tracing",
+ "ty_server",
+]
+
+[[package]]
 name = "ty"
 version = "0.0.0"
 dependencies = [
