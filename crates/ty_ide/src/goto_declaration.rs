@@ -138,7 +138,7 @@ mod tests {
             ",
         );
 
-        assert_snapshot!(test.goto_declaration(), @"
+        assert_snapshot!(test.goto_declaration(), @r"
         info[goto-declaration]: Go to declaration
          --> main.py:6:12
           |
