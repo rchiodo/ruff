@@ -25,6 +25,7 @@ mod semantic_tokens;
 mod signature_help;
 mod stub_mapping;
 mod symbols;
+pub mod type_info;
 mod workspace_symbols;
 
 pub use all_symbols::{AllSymbolInfo, all_symbols};
@@ -48,6 +49,9 @@ pub use semantic_tokens::{
 };
 pub use signature_help::{ParameterDetails, SignatureDetails, SignatureHelpInfo, signature_help};
 pub use symbols::{FlatSymbols, HierarchicalSymbols, SymbolId, SymbolInfo, SymbolKind};
+pub use type_info::{
+    DeclarationInfo, TypeCategory, TypeInfo, declared_type_info, expected_type_info, type_info,
+};
 pub use workspace_symbols::{WorkspaceSymbolInfo, workspace_symbols};
 
 use ruff_db::{
